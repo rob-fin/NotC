@@ -1,0 +1,41 @@
+-- Program (list of function definitions)
+PDefs.   Program ::= [Def] ;
+
+
+-- Function definition (type, name, parameters, body)
+FunDef.        Def            ::= Type Id ParList FunBody ;
+terminator Def "" ;
+
+
+-- Types
+Tint.          Type           ::= "int" ;
+Tbool.         Type           ::= "bool" ;
+Tdouble.       Type           ::= "double" ;
+Tvoid.         Type           ::= "void" ;
+
+
+-- An id token is a letter followed by letters, digits, or underscores
+token Id   (letter (letter | digit | '_')*) ;
+
+
+-- Parameter list (type id pairs separated by ,)
+FunParList.    ParList        ::= "(" [Par] ")" ;
+ParDecl.       Par            ::= Type Id ;
+separator  Par "," ;
+
+
+-- Function body (list of statements enclosed in {})
+FunBodyStms.   FunBody        ::= "{" [Stm] "}" ;
+terminator Stm "" ;
+
+
+-- Statements
+DeclStm.       Stm            ::= Decl ";" ;
+
+DeclNoInit.    Decl           ::= Type [Var] ;
+IdVar.         Var            ::= Id ;
+separator nonempty Var "," ;
+
+
+comment "/*" "*/" ;
+comment "//" ;
