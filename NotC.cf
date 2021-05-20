@@ -21,7 +21,7 @@ token Id   (letter (letter | digit | '_')*) ;
 -- Parameter list (type id pairs separated by ,)
 FunParList.    ParList        ::= "(" [Par] ")" ;
 ParDecl.       Par            ::= Type Id ;
-separator  Par "," ;
+separator Par "," ;
 
 
 -- Function body (list of statements enclosed in {})
@@ -31,11 +31,49 @@ terminator Stm "" ;
 
 -- Statements
 DeclStm.       Stm            ::= Decl ";" ;
-
+StExp.         Stm            ::= Exp ";" ;
+StReturn.      Stm            ::= "return" Exp ";" ;
+StBlock.       Stm            ::= "{" [Stm] "}" ;
+StWhile.       Stm            ::= "while" "(" Exp ")" Stm ;
+StIfElse.      Stm            ::= "if" "(" Exp ")" Stm "else" Stm ;
 DeclNoInit.    Decl           ::= Type [Var] ;
+DeclInit.      Decl           ::= Type Var "=" Exp ;
 IdVar.         Var            ::= Id ;
 separator nonempty Var "," ;
 
 
-comment "/*" "*/" ;
+-- Expressions in order of decreasing precedence
+EInt.          Exp6           ::= Integer ;
+EDouble.       Exp6           ::= Double ;
+ETrue.         Exp6           ::= "true" ;
+EFalse.        Exp6           ::= "false" ;
+EId.           Exp6           ::= Id ;
+EFunCall.      Exp6           ::= Id "(" [FunCallArg] ")" ;
+EPostIncr.     Exp6           ::= Id "++" ;
+EPostDecr.     Exp6           ::= Id "--" ;
+EPreIncr.      Exp6           ::= "++" Id ;
+EPreDecr.      Exp6           ::= "--" Id ;
+EMul.          Exp5           ::= Exp5 "*" Exp6 ;
+EDiv.          Exp5           ::= Exp5 "/" Exp6 ;
+EAdd.          Exp4           ::= Exp4 "+" Exp5 ;
+ESub.          Exp4           ::= Exp4 "-" Exp5 ;
+ELt.           Exp3           ::= Exp4 "<" Exp4 ;
+EGt.           Exp3           ::= Exp4 ">" Exp4 ;
+EGEq.          Exp3           ::= Exp4 ">=" Exp4 ;
+ELEq.          Exp3           ::= Exp4 "<=" Exp4 ;
+EEq.           Exp3           ::= Exp4 "==" Exp4 ;
+ENEq.          Exp3           ::= Exp4 "!=" Exp4 ;
+EAnd.          Exp2           ::= Exp2 "&&" Exp3 ;
+EOr.           Exp1           ::= Exp1 "||" Exp2 ;
+EAss.          Exp            ::= Id "=" Exp ;
+
+coercions Exp 6 ;
+
+
+-- Function call arguments are comma-separated expressions
+ExpArg.        FunCallArg     ::= Exp ;
+separator FunCallArg "," ;
+
+-- Single-line and multi-line comments
 comment "//" ;
+comment "/*" "*/" ;
