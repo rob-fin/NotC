@@ -10,3 +10,6 @@ RUN apt-get install -y make
 COPY NotC.cf .
 RUN bnfc --java -m NotC.cf
 RUN make
+ADD src ./NotC
+RUN javac NotC/Compiler.java
+ENTRYPOINT ["java", "NotC.Compiler"]
