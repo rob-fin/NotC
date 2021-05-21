@@ -7,48 +7,50 @@ public class Compiler {
     
     public static void main(String[] args) {
         
-        // 0: ok, 1: compile/usage error, -1: unexpected system error
+        // 0: ok, 1: lexing error, 2: parsing error, 3: type error, -1: unexpected system error
         int exitCode = 0;
         
-        Reader src = null;
         Yylex  lex = null;
         parser par = null;
         
         try {
-            src = new InputStreamReader(System.in);
-            if (!src.ready()) {
-                throw new IllegalStateException();
-            }
+            String srcFile = args[0];
+            String outFile = stripExtension(srcFile) + ".output";
             
             // Parse
-            lex = new Yylex(src);
+            FileReader in = new FileReader(srcFile);
+            lex = new Yylex(in);
             par = new parser(lex);
             NotC.Absyn.Program ast = par.pProgram();
+            in.close();
             
             // TODO: typecheck, generate code
-            // Print the abstract syntax tree for now
+            // Output the abstract syntax tree for now
+            PrintWriter out = new PrintWriter(outFile);
+            out.print(PrettyPrinter.show(ast));
             System.out.println(PrettyPrinter.show(ast));
+            out.close();
+        } catch (RuntimeException e) {
+            e.printStackTrace();
+            exitCode = -1;
         } catch (IOException e) {
             e.printStackTrace();
             exitCode = -1;
-        } catch (IllegalStateException e) {
-            System.err.println("Usage: docker run -i --rm <image> < <sourcefile>");
-            exitCode = 1;
         } catch (Throwable e) {
-            System.err.println("Syntax Error on line " + lex.line_num() +
-                               " near \"" + lex.buff() + "\": " + e.getMessage());
-            exitCode = 1;
-        } finally {
-            try {
-                src.close();
-            }
-            catch (IOException e) {
-                e.printStackTrace();
-                exitCode = -1;
-            }
-            System.exit(exitCode);
+            System.err.println("Line " + lex.line_num() + " near \"" +
+                               lex.buff() + "\": " + e.getMessage());
+            // BNFC-generated lexers throw Errors, parsers Exceptions
+            exitCode = e instanceof Error ? 1 : 2;
         }
+            
+        System.exit(exitCode);
         
+    }
+    
+    // Utility method for removing extensions from file names
+    private static String stripExtension(String srcFile) {
+        int lastDot = srcFile.lastIndexOf(".");
+        return lastDot < 0 ? srcFile : srcFile.substring(0, lastDot);
     }
     
 }
