@@ -12,6 +12,7 @@ Tint.          Type           ::= "int" ;
 Tbool.         Type           ::= "bool" ;
 Tdouble.       Type           ::= "double" ;
 Tvoid.         Type           ::= "void" ;
+Tstring.       Type           ::= "string" ;
 
 
 -- An id token is a letter followed by letters, digits, or underscores
@@ -48,6 +49,7 @@ EDouble.       Exp6           ::= Double ;
 ETrue.         Exp6           ::= "true" ;
 EFalse.        Exp6           ::= "false" ;
 EId.           Exp6           ::= Id ;
+EStr.          Exp6           ::= String ;
 EFunCall.      Exp6           ::= Id "(" [FunCallArg] ")" ;
 EPostIncr.     Exp6           ::= Id "++" ;
 EPostDecr.     Exp6           ::= Id "--" ;
