@@ -2,6 +2,7 @@ package NotC;
 
 import java.io.*;
 import NotC.Absyn.*;
+import NotC.TypeChecker.*;
 
 public class Compiler {
     
@@ -16,20 +17,24 @@ public class Compiler {
         try {
             String srcFile = args[0];
             String outFile = stripExtension(srcFile) + ".output";
-            
-            // Parse
             FileReader in = new FileReader(srcFile);
+            
+            // Lex and parse
             lex = new Yylex(in);
             par = new parser(lex);
             NotC.Absyn.Program ast = par.pProgram();
             in.close();
             
-            // TODO: typecheck, generate code
+            // Type check
+            ast.accept(new NotC.TypeChecker.CheckProgram(), null);
+            
             // Output the abstract syntax tree for now
             PrintWriter out = new PrintWriter(outFile);
             out.print(PrettyPrinter.show(ast));
-            System.out.println(PrettyPrinter.show(ast));
             out.close();
+        } catch (TypeException e) {
+            System.err.println(e.getMessage());
+            exitCode = 3;
         } catch (RuntimeException e) {
             e.printStackTrace();
             exitCode = -1;

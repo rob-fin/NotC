@@ -5,17 +5,16 @@ package NotC.Absyn;
 public class TypeAnnotatedNode {
 
     // Type annotation
-    private Type type;
+    private Type t;
   
     // Called by type checker
-    public Type setType(Type type) {
-      this.type = type;
-      return type;
+    public void setType(Type t) {
+      this.t = t;
     }
   
     // Called by code generator
     public Type getType() {
-        return type;
+        return t;
     }
 
 }

@@ -1,5 +1,7 @@
 FROM bitnami/minideb as build
 WORKDIR /build_root/src
+
+# Dependencies
 RUN apt-get update && apt-get install -y \
     bnfc \
     cup \
@@ -8,20 +10,20 @@ RUN apt-get update && apt-get install -y \
     openjdk-11-jdk \
     python3
 ENV CLASSPATH=.:/usr/share/java/JLex.jar:/usr/share/java/cup.jar:/build_root
+
 COPY ./src .
 
-# From grammar file, generate lexer and parser source code,
-# and visitor skeletons for traversing abstract syntax trees
+# Generate parser generator files and abstract syntax classes from grammar
 RUN bnfc --java NotC.cf && \
     java JLex.Main NotC/Yylex && \
     java java_cup.Main -destdir NotC NotC/NotC.cup
 
-# Patch Exp nodes with type annotations
-RUN mv TypeAnnotatedNode.java NotC/Absyn/TypeAnnotatedNode.java && \
-    sed -i 's/class Exp/class Exp extends TypeAnnotatedNode/' NotC/Absyn/Exp.java
+# Patch abstract syntax for expressions with type annotations
+RUN sed -i 's/class Exp/class Exp extends TypeAnnotatedNode/' NotC/Absyn/Exp.java
 
 # Build all sources
 RUN javac -d .. $(find NotC -name "*.java") 
+
 
 # Run tests
 WORKDIR /build_root/tests
