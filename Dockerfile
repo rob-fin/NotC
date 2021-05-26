@@ -5,22 +5,26 @@ RUN apt-get update && apt-get install -y \
     cup \
     jlex \
     make \
-    openjdk-11-jdk
+    openjdk-11-jdk \
+    python3
 ENV CLASSPATH=.:/usr/share/java/JLex.jar:/usr/share/java/cup.jar:/build_root
 COPY ./src .
 
-# Generate lexer and parser source code from grammar file
+# From grammar file, generate lexer and parser source code,
+# and visitor skeletons for traversing abstract syntax trees
 RUN bnfc --java NotC.cf && \
     java JLex.Main NotC/Yylex && \
-    java java_cup.Main NotC/NotC.cup
+    java java_cup.Main -destdir NotC NotC/NotC.cup
 
-# Build it with the other compiler code
-RUN javac -d .. $(find . -name "*.java") 
+# Patch Exp nodes with type annotations
+RUN mv TypeAnnotatedNode.java NotC/Absyn/TypeAnnotatedNode.java && \
+    sed -i 's/class Exp/class Exp extends TypeAnnotatedNode/' NotC/Absyn/Exp.java
 
+# Build all sources
+RUN javac -d .. $(find NotC -name "*.java") 
 
-FROM build as test
+# Run tests
 WORKDIR /build_root/tests
-RUN apt-get update && apt-get install -y python3
 COPY ./tests .
 RUN python3 run_tests.py
 
