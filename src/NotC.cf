@@ -46,9 +46,12 @@ ExpDouble.       Exp6           ::= Double ;
 ExpInt.          Exp6           ::= Integer ;
 ExpString.       Exp6           ::= String ;
 
--- Variables and function calls
+-- Variables
 ExpId.           Exp6           ::= Id ;
-ExpFunCall.      Exp6           ::= Id "(" [FunCallArg] ")" ;
+
+-- Function calls
+ExpFunCall.      Exp6           ::= Id "(" [Exp] ")" ;
+separator Exp "," ;
 
 -- Built in operations
 ExpPostIncr.     Exp6           ::= Id "++" ;
@@ -73,10 +76,6 @@ ExpAss.          Exp            ::= Id "=" Exp ;
 
 coercions Exp 6 ;
 
-
--- Function call arguments are comma-separated expressions
-ExpArg.        FunCallArg     ::= Exp ;
-separator FunCallArg "," ;
 
 -- Single-line and multi-line comments
 comment "//" ;
