@@ -5,36 +5,62 @@ import java.util.HashMap;
 import NotC.*;
 import NotC.Absyn.*;
 
-/* Environment class for the type checker.
- * Contains function signatures, variable contexts,
- * and methods for getting and setting type information. */
-class SymbolTable {
-
-    // Functions
+/* Symbol table used to resolve identifiers to their types.
+ * Contains function signatures and variables. */
+public class SymbolTable {
+    
+    // Functions (id -> function type)
     private HashMap<String,FunType> signatures;
     // Variables (a stack for scoping)
-    private LinkedList<HashMap<String,Type>> contexts;
-
+    private LinkedList<HashMap<String,Type>> vars;
+    
+    // Id of function whose body currently is being type checked
+    private String context;
+    
+    public String getContext() {
+        return context;
+    }
+        
+    
     SymbolTable() {
         signatures = new HashMap<String,FunType>();
-        contexts = new LinkedList<HashMap<String,Type>>();
+        vars = new LinkedList<HashMap<String,Type>>();
+    }
+    
+    void addFun(String id, FunType ft) {
+        if (signatures.containsKey(id))
+            throw new TypeException("Re-definition of function \"" + id + "\"");
+        signatures.put(id, ft);
+    }
+    
+    /* When a new function definition is to be type checked, add its parameters as local variables */
+    void setContext(String context, LinkedList<Param> paramList) {
+        this.context = context;
+        vars.clear();
+        pushScope();
+        Param.Visitor<FunParam,Void> castToFunParam = (funParam, Void) -> funParam;
+        for (Param p : paramList) {
+            FunParam funParam = p.accept(castToFunParam, null);
+            addVar(funParam.type_, funParam.id_);
+        }
+    }
+    
+        
+    void pushScope() {
+        vars.add(new HashMap<String,Type>());
     }
         
-    void pushContext() {
-        contexts.add(new HashMap<String,Type>());
-    }
-        
-    void popContext() {
-        contexts.pop();
+    void popScope() {
+        vars.pop();
     }
         
     Type lookupVar(String id) {
-        HashMap<String,Type> context;
+        HashMap<String,Type> scope;
         Type result;
-        // Start in the outermost context and return when a match is found
-        for (int i = contexts.size() - 1; i >= 0; i--) {
-            context = contexts.get(i);
-            result = context.get(id);
+        // Start in the outermost scope and return when a match is found
+        for (int i = vars.size() - 1; i >= 0; i--) {
+            scope = vars.get(i);
+            result = scope.get(id);
             if (result != null)
                 return result;
         }
@@ -50,10 +76,10 @@ class SymbolTable {
     }
 
     void addVar(Type t, String id) {
-        if (t.accept(new ComparableType.Get(), null) == ComparableType.Cvoid)
+        if (TypeResolver.isVoid(t))
             throw new TypeException("Variables cannot have type void");
             
-        HashMap<String,Type> context = contexts.peekLast(); // Get outermost context
+        HashMap<String,Type> context = vars.peekLast(); // Get outermost context
             
         if (context.containsKey(id)) {
             throw new TypeException("Variable \"" + id + "\" already defined");
@@ -61,10 +87,5 @@ class SymbolTable {
             
         context.put(id, t);
     }
-
-    void addFun(String id, FunType ft) {
-        if (signatures.containsKey(id))
-            throw new TypeException("Re-definition of function \"" + id + "\"");
-        signatures.put(id, ft);
-    }
+    
 }

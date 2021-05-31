@@ -1,73 +1,75 @@
--- Program (list of function definitions)
-PDefs.   Program ::= [Def] ;
+-- Program: list of function definitions
+ProgramDefs.     Program        ::= [Def] ;
 
 
--- Function definition (type, name, parameters, body)
-FunDef.        Def            ::= Type Id ParList FunBody ;
+-- Function definition: type, name, parameter list, body
+FunDef.          Def            ::= Type Id "(" [Param] ")" "{" [Stm] "}" ;
 terminator Def "" ;
 
 
 -- Types
-Tint.          Type           ::= "int" ;
-Tbool.         Type           ::= "bool" ;
-Tdouble.       Type           ::= "double" ;
-Tvoid.         Type           ::= "void" ;
-Tstring.       Type           ::= "string" ;
+Tbool.           Type           ::= "bool" ;
+Tdouble.         Type           ::= "double" ;
+Tint.            Type           ::= "int" ;
+Tstring.         Type           ::= "string" ;
+Tvoid.           Type           ::= "void" ;
 
 
--- An id token is a letter followed by letters, digits, or underscores
+-- Identifiers
 token Id   (letter (letter | digit | '_')*) ;
 
 
 -- Parameter list (type id pairs separated by ,)
-FunParList.    ParList        ::= "(" [Par] ")" ;
-ParDecl.       Par            ::= Type Id ;
-separator Par "," ;
-
-
--- Function body (list of statements enclosed in {})
-FunBodyStms.   FunBody        ::= "{" [Stm] "}" ;
-terminator Stm "" ;
+FunParam.        Param          ::= Type Id ;
+separator Param "," ;
 
 
 -- Statements
-DeclStm.       Stm            ::= Decl ";" ;
-StExp.         Stm            ::= Exp ";" ;
-StReturn.      Stm            ::= "return" Exp ";" ;
-StBlock.       Stm            ::= "{" [Stm] "}" ;
-StWhile.       Stm            ::= "while" "(" Exp ")" Stm ;
-StIfElse.      Stm            ::= "if" "(" Exp ")" Stm "else" Stm ;
-DeclNoInit.    Decl           ::= Type [Var] ;
-DeclInit.      Decl           ::= Type Var "=" Exp ;
-IdVar.         Var            ::= Id ;
-separator nonempty Var "," ;
+StmDeclInit.     Stm            ::= Type Id "=" Exp ";" ;
+StmDeclNoInit.   Stm            ::= Type [Id] ";" ;
+StmExp.          Stm            ::= Exp ";" ;
+StmReturn.       Stm            ::= "return" Exp ";" ;
+StmBlock.        Stm            ::= "{" [Stm] "}" ;
+StmWhile.        Stm            ::= "while" "(" Exp ")" Stm ;
+StmIfElse.       Stm            ::= "if" "(" Exp ")" Stm "else" Stm ;
+separator nonempty Id "," ;
+
+terminator Stm "" ;
 
 
--- Expressions in order of decreasing precedence
-EInt.          Exp6           ::= Integer ;
-EDouble.       Exp6           ::= Double ;
-ETrue.         Exp6           ::= "true" ;
-EFalse.        Exp6           ::= "false" ;
-EId.           Exp6           ::= Id ;
-EStr.          Exp6           ::= String ;
-EFunCall.      Exp6           ::= Id "(" [FunCallArg] ")" ;
-EPostIncr.     Exp6           ::= Id "++" ;
-EPostDecr.     Exp6           ::= Id "--" ;
-EPreIncr.      Exp6           ::= "++" Id ;
-EPreDecr.      Exp6           ::= "--" Id ;
-EMul.          Exp5           ::= Exp5 "*" Exp6 ;
-EDiv.          Exp5           ::= Exp5 "/" Exp6 ;
-EAdd.          Exp4           ::= Exp4 "+" Exp5 ;
-ESub.          Exp4           ::= Exp4 "-" Exp5 ;
-ELt.           Exp3           ::= Exp4 "<" Exp4 ;
-EGt.           Exp3           ::= Exp4 ">" Exp4 ;
-EGEq.          Exp3           ::= Exp4 ">=" Exp4 ;
-ELEq.          Exp3           ::= Exp4 "<=" Exp4 ;
-EEq.           Exp3           ::= Exp4 "==" Exp4 ;
-ENEq.          Exp3           ::= Exp4 "!=" Exp4 ;
-EAnd.          Exp2           ::= Exp2 "&&" Exp3 ;
-EOr.           Exp1           ::= Exp1 "||" Exp2 ;
-EAss.          Exp            ::= Id "=" Exp ;
+  -- Expressions in order of decreasing precedence --
+
+-- Literals
+ExpFalse.        Exp6           ::= "false" ;
+ExpTrue.         Exp6           ::= "true" ;
+ExpDouble.       Exp6           ::= Double ;
+ExpInt.          Exp6           ::= Integer ;
+ExpString.       Exp6           ::= String ;
+
+-- Variables and function calls
+ExpId.           Exp6           ::= Id ;
+ExpFunCall.      Exp6           ::= Id "(" [FunCallArg] ")" ;
+
+-- Built in operations
+ExpPostIncr.     Exp6           ::= Id "++" ;
+ExpPostDecr.     Exp6           ::= Id "--" ;
+ExpPreIncr.      Exp6           ::= "++" Id ;
+ExpPreDecr.      Exp6           ::= "--" Id ;
+ExpMul.          Exp5           ::= Exp5 "*" Exp6 ;
+ExpDiv.          Exp5           ::= Exp5 "/" Exp6 ;
+ExpAdd.          Exp4           ::= Exp4 "+" Exp5 ;
+ExpSub.          Exp4           ::= Exp4 "-" Exp5 ;
+ExpLt.           Exp3           ::= Exp4 "<" Exp4 ;
+ExpGt.           Exp3           ::= Exp4 ">" Exp4 ;
+ExpGEq.          Exp3           ::= Exp4 ">=" Exp4 ;
+ExpLEq.          Exp3           ::= Exp4 "<=" Exp4 ;
+ExpEq.           Exp3           ::= Exp4 "==" Exp4 ;
+ExpNEq.          Exp3           ::= Exp4 "!=" Exp4 ;
+ExpAnd.          Exp2           ::= Exp2 "&&" Exp3 ;
+ExpOr.           Exp1           ::= Exp1 "||" Exp2 ;
+
+-- Assignments
+ExpAss.          Exp            ::= Id "=" Exp ;
 
 coercions Exp 6 ;
 
