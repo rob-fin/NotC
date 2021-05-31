@@ -1,41 +1,37 @@
 package NotC.TypeChecker;
 
+import NotC.Absyn.FunParam;
+import NotC.Absyn.Param;
+import NotC.Absyn.Type;
+import NotC.TypeResolver;
+
 import java.util.LinkedList;
 import java.util.HashMap;
-import NotC.*;
-import NotC.Absyn.*;
 
-/* Symbol table used to resolve identifiers to their types.
- * Contains function signatures and variables. */
+/* Class used to resolve types in the type checking environment:
+ * Function ids to signatures and variables to declared types. */
 public class SymbolTable {
     
-    // Functions (id -> function type)
+    // Functions
     private HashMap<String,FunType> signatures;
     // Variables (a stack for scoping)
     private LinkedList<HashMap<String,Type>> vars;
-    
-    // Id of function whose body currently is being type checked
-    private String context;
-    
-    public String getContext() {
-        return context;
-    }
-        
     
     SymbolTable() {
         signatures = new HashMap<String,FunType>();
         vars = new LinkedList<HashMap<String,Type>>();
     }
     
+    // Used to add all function declarations in a first pass through the program
     void addFun(String id, FunType ft) {
         if (signatures.containsKey(id))
             throw new TypeException("Re-definition of function \"" + id + "\"");
         signatures.put(id, ft);
     }
     
-    /* When a new function definition is to be type checked, add its parameters as local variables */
-    void setContext(String context, LinkedList<Param> paramList) {
-        this.context = context;
+    /* When a function body is to be type checked,
+     * add its parameters as local variables. */
+    void setContext(LinkedList<Param> paramList) {
         vars.clear();
         pushScope();
         Param.Visitor<FunParam,Void> castToFunParam = (funParam, Void) -> funParam;
@@ -45,28 +41,26 @@ public class SymbolTable {
         }
     }
     
-        
     void pushScope() {
-        vars.add(new HashMap<String,Type>());
+        vars.push(new HashMap<String,Type>());
     }
-        
+    
     void popScope() {
-        vars.pop();
+        vars.pollFirst();
     }
-        
+    
+    /// Start looking in outermost scope and return when a match is found
     Type lookupVar(String id) {
-        HashMap<String,Type> scope;
         Type result;
-        // Start in the outermost scope and return when a match is found
-        for (int i = vars.size() - 1; i >= 0; i--) {
-            scope = vars.get(i);
+        for (HashMap<String,Type> scope : vars) {
             result = scope.get(id);
             if (result != null)
                 return result;
         }
         throw new TypeException("Undefined variable \"" + id + "\"");
     }
-        
+    
+    // Resolve a function
     FunType lookupFun(String id) {
         FunType result = signatures.get(id);
         if (result != null)
@@ -74,18 +68,16 @@ public class SymbolTable {
         else
             throw new TypeException("Undefined function \"" + id + "\"");
     }
-
+    
+    // Add a variable, unless it's already defined in the current scope
     void addVar(Type t, String id) {
         if (TypeResolver.isVoid(t))
             throw new TypeException("Variables cannot have type void");
-            
-        HashMap<String,Type> context = vars.peekLast(); // Get outermost context
-            
-        if (context.containsKey(id)) {
+        HashMap<String,Type> scope = vars.peekFirst();
+        if (scope.containsKey(id)) {
             throw new TypeException("Variable \"" + id + "\" already defined");
         }
-            
-        context.put(id, t);
+        scope.put(id, t);
     }
     
 }

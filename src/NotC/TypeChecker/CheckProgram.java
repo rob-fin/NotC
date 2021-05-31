@@ -22,7 +22,7 @@ public class CheckProgram implements Program.Visitor<Program,Void> {
 
     // Entry point for type checker. Check the list of function definitions in two passes:
     // First to collect the id and type signature of each function.
-    // Then to check their statements in a context where these functions are declared.
+    // Then to check their definitions in a context where these functions are declared.
     public Program visit(ProgramDefs defs, Void arg) {
 
         SymbolTable symTab = new SymbolTable();
@@ -52,10 +52,7 @@ public class CheckProgram implements Program.Visitor<Program,Void> {
 
         // Add parameters as local variables, then check statements
         for (Def d : defs.listdef_) {
-            FunDef funDef = d.accept(castToFunDef, null);
-            symTab.setContext(funDef.id_, funDef.listparam_);
-            for (Stm s : funDef.liststm_)
-                s.accept(CheckStatement.instance, symTab);
+            d.accept(checkFun, null);
         }
 
         // Program is well-typed and now has type annotations to be used by the code generator

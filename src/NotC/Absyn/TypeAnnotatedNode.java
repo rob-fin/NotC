@@ -8,8 +8,9 @@ public class TypeAnnotatedNode {
     private Type t;
   
     // Called by type checker
-    public void setType(Type t) {
-      this.t = t;
+    public Type setType(Type t) {
+        this.t = t;
+        return t;
     }
   
     // Called by code generator
