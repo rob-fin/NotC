@@ -1,6 +1,11 @@
 package NotC;
 
-import NotC.Absyn.*;
+import NotC.Absyn.Type;
+import NotC.Absyn.Tbool;
+import NotC.Absyn.Tdouble;
+import NotC.Absyn.Tint;
+import NotC.Absyn.Tstring;
+import NotC.Absyn.Tvoid;
 
 /* Utility class for resolving abstract syntax types at run-time */
 public class TypeResolver implements Type.Visitor<Boolean,TypeResolver.TypeCode> {
@@ -35,6 +40,11 @@ public class TypeResolver implements Type.Visitor<Boolean,TypeResolver.TypeCode>
     
     public static boolean isVoid(Type t) {
         return t.accept(instance, TypeCode.VOID);
+    }
+    
+    public static boolean isNumerical(Type t) {
+        return t.accept(instance, TypeCode.INT) ||
+               t.accept(instance, TypeCode.DOUBLE);
     }
     
     
