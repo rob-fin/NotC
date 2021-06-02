@@ -8,7 +8,7 @@ public class Compiler {
     
     public static void main(String[] args) {
         
-        // 0: ok, 1: lexing error, 2: parsing error, 3: type error, -1: unexpected system error
+        // 0: ok, 1: lexing error, 2: parsing error, 3: type error, 4: unexpected system error
         int exitCode = 0;
         
         Yylex  lex = null;
@@ -26,8 +26,9 @@ public class Compiler {
             in.close();
             
             // Type check
-            ast.accept(new NotC.TypeChecker.CheckProgram(), null);
+            Program typedAst = typeCheck(ast);
             
+            // TODO: Generate code
             // Output the abstract syntax tree for now
             PrintWriter out = new PrintWriter(outFile);
             out.print(PrettyPrinter.show(ast));
@@ -37,10 +38,10 @@ public class Compiler {
             exitCode = 3;
         } catch (RuntimeException e) {
             e.printStackTrace();
-            exitCode = -1;
+            exitCode = 4;
         } catch (IOException e) {
             e.printStackTrace();
-            exitCode = -1;
+            exitCode = 4;
         } catch (Throwable e) {
             System.err.println("Line " + lex.line_num() + " near \"" +
                                lex.buff() + "\": " + e.getMessage());
@@ -50,6 +51,10 @@ public class Compiler {
             
         System.exit(exitCode);
         
+    }
+    
+    private static Program typeCheck(Program ast) {
+        return ast.accept(new CheckProgram(), null);
     }
     
     // Utility method for removing extensions from file names

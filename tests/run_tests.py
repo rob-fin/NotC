@@ -14,7 +14,7 @@ n_run = 0
 n_passed = 0
 
 def get_exit_error(actual, expected):
-    if actual < 0:
+    if actual > 3:
         return "Unexpected system error"
     return ["Good program ", "Lexical error ", "Parse error ", "Type error "] \
            [expected] \
