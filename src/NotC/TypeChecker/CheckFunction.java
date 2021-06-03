@@ -97,6 +97,8 @@ public class CheckFunction implements Def.Visitor<Void,Void> {
             checkExp(ie.exp_, new Tbool());
             symTab.pushScope();
             ie.stm_1.accept(this, null);
+            symTab.popScope();
+            symTab.pushScope();
             ie.stm_2.accept(this, null);
             symTab.popScope();
             return null;
@@ -153,14 +155,14 @@ public class CheckFunction implements Def.Visitor<Void,Void> {
         }
         
         // Utility function to infer and check arithmetic expressions 
-        private Type checkArithmetic(Exp overall, Exp part1, Exp part2) {
-            Type t1 = part1.accept(this, null);
-            Type t2 = part2.accept(this, null);
+        private Type checkArithmetic(Exp op, Exp opnd1, Exp opnd2) {
+            Type t1 = opnd1.accept(this, null);
+            Type t2 = opnd2.accept(this, null);
             if (isNumerical(t1) && isNumerical(t2)) {
                 if (isDouble(t1) || isDouble(t2))
-                    return overall.setType(new Tdouble());
+                    return op.setType(new Tdouble());
                 else
-                    return overall.setType(new Tint());
+                    return op.setType(new Tint());
             }
             throw new TypeException("Attempted arithmetic on non-numerical expression");
         }
@@ -190,9 +192,8 @@ public class CheckFunction implements Def.Visitor<Void,Void> {
             Type t = symTab.lookupVar(id);
             if (isNumerical(t))
                 return exp.setType(t);
-            else
-                throw new TypeException("Attempted increment or decrement of " +
-                                        "variable that was not int or double");
+            throw new TypeException("Attempted increment or decrement of " +
+                                    "variable that was not int or double");
         }
         
         // Id "++" -> ExpPostIncr 
