@@ -22,12 +22,12 @@ def get_exit_error(actual, expected):
            ["not caught", "rejected by lexer", "rejected by parser", "rejected by type checker"] \
            [actual]
 
-# Iterate over each .nc file in the test directories,
+# Iterate over each .notc file in the test directories,
 # run the compiler with it, and check exit status
 for test_directory, _, files in walk("."):
     test_category = basename(test_directory)
     expected_exit = exit_codes.get(test_category)
-    source_files = [f for f in files if splitext(f)[1] == ".nc"]
+    source_files = [f for f in files if splitext(f)[1] == ".notc"]
     for file_name in source_files:
         absolute_path = abspath(test_directory) + "/" + file_name
         actual_exit = run(["java", "NotC.Compiler", absolute_path], \
