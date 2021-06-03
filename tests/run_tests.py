@@ -5,21 +5,20 @@ from sys import exit
 
 exit_codes = {
     "good_programs": 0,
-    "lexical_errors": 1,
-    "parse_errors": 2,
-    "type_errors": 3,
+    "syntax_errors": 1,
+    "type_errors":   2,
 }
 
 n_run = 0
 n_passed = 0
 
 def get_exit_error(actual, expected):
-    if actual > 3:
+    if actual > 2:
         return "Unexpected system error"
-    return ["Good program ", "Lexical error ", "Parse error ", "Type error "] \
+    return ["Good program ", "Syntax error ", "Type error "] \
            [expected] \
            + \
-           ["not caught", "rejected by lexer", "rejected by parser", "rejected by type checker"] \
+           ["not caught", "rejected when parsing", "rejected by type checker"] \
            [actual]
 
 # Iterate over each .notc file in the test directories,
@@ -31,7 +30,7 @@ for test_directory, _, files in walk("."):
     for file_name in source_files:
         absolute_path = abspath(test_directory) + "/" + file_name
         actual_exit = run(["java", "NotC.Compiler", absolute_path], \
-                                     stderr=DEVNULL).returncode
+                          stderr=DEVNULL).returncode
         # TODO: Check if produced output matches expected output
         if actual_exit == expected_exit:
             n_passed += 1

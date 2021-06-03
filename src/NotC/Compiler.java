@@ -8,7 +8,7 @@ public class Compiler {
     
     public static void main(String[] args) {
         
-        // 0: ok, 1: lexing error, 2: parsing error, 3: type error, 4: unexpected system error
+        // 0: ok, 1: syntax error, 2: type error, 3: unexpected system error
         int exitCode = 0;
         
         Yylex  lex = null;
@@ -35,18 +35,17 @@ public class Compiler {
             out.close();
         } catch (TypeException e) {
             System.err.println(e.getMessage());
-            exitCode = 3;
+            exitCode = 2;
         } catch (RuntimeException e) {
             e.printStackTrace();
-            exitCode = 4;
+            exitCode = 3;
         } catch (IOException e) {
             e.printStackTrace();
-            exitCode = 4;
+            exitCode = 3;
         } catch (Throwable e) {
             System.err.println("Line " + lex.line_num() + " near \"" +
                                lex.buff() + "\": " + e.getMessage());
-            // BNFC-generated lexers throw Errors, parsers Exceptions
-            exitCode = e instanceof Error ? 1 : 2;
+            exitCode = 1;
         }
             
         System.exit(exitCode);
