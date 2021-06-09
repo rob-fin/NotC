@@ -28,7 +28,7 @@ public class Compiler {
             ParseTree ast = parser.program(); // parse
         
             //new CheckProgram().visit(ast);
-            ast.accept(new CheckProgram());
+            ast.accept(new ProgramChecker());
 
         } catch (LexerNoViableAltException e) {
             System.out.print(e.getMessage());

@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
 import java.util.function.*;
 
 
-public class CheckProgram extends NotCBaseVisitor<Void> {
+public class ProgramChecker extends NotCBaseVisitor<Void> {
 
     @Override
     public Void visitProgram(ProgramContext ctx) {
@@ -41,16 +41,16 @@ public class CheckProgram extends NotCBaseVisitor<Void> {
         if (mainReturn != SrcType.VOID)
             throw new TypeException("Non-void return type declared for function main");
 
-        CheckFunction checkFun = new CheckFunction(symTab);
+        FunctionChecker funChecker = new FunctionChecker(symTab);
         for (DefContext def : ctx.def()) {
-            FunType sig = symTab.lookupFun(def.funId.getText());
-            List<String> varIds = convertAstList(def.params().ID(), TerminalNode::getText);
-            symTab.setContext(sig.getParamTypes(), varIds);
-            checkFun.checkFunctionBody(def.stm(), sig.getReturnType());
+            def.accept(funChecker);
         }
         return null;
 
     }
+
+    // Utility function to convert lists with elements of ANTLR generated types
+    // to lists with elements of some other type (e.g. TerminalNode list to String list)
     private <A,R> List<R> convertAstList(List<A> astList, Function<A,R> op) {
         if (astList == null)
             return Collections.<R>emptyList();
