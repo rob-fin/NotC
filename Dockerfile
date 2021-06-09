@@ -1,40 +1,31 @@
 FROM bitnami/minideb as build
-WORKDIR /build_root/src
 
-# Dependencies
+# Install dependencies
 RUN apt-get update && apt-get install -y \
-    bnfc \
-    cup \
-    jlex \
-    make \
     openjdk-11-jdk \
     python3
-ENV CLASSPATH=.:/usr/share/java/JLex.jar:/usr/share/java/cup.jar:/build_root
+WORKDIR /build_root/lib
+RUN apt-get install -y curl
+RUN curl -o ./antlr4.jar https://www.antlr.org/download/antlr-4.9.2-complete.jar
+ENV CLASSPATH=.:/build_root/lib/antlr4.jar
 
+# Build sources
+WORKDIR /build_root/src
+COPY ./src/NotC.g4 .
+RUN java org.antlr.v4.Tool -o notc/analysis -package notc.analysis -no-listener -visitor NotC.g4
 COPY ./src .
-
-# Generate parser generator files and abstract syntax classes from grammar
-RUN bnfc --java NotC.cf && \
-    java JLex.Main NotC/Yylex && \
-    java java_cup.Main -destdir NotC NotC/NotC.cup
-
-# Patch abstract syntax for expressions with type annotations
-RUN sed -i 's/class Exp/class Exp extends TypeAnnotatedNode/' NotC/Absyn/Exp.java
-
-# Build all sources
-RUN javac -d .. $(find NotC -name "*.java") 
-
+RUN javac -d .. $(find notc -name "*.java")
 
 # Run tests
-WORKDIR /build_root/tests
-COPY ./tests .
-RUN python3 run_tests.py
+WORKDIR /build_root
+COPY ./tests ./tests
+RUN ./tests/run_tests.py
 
-
+# Create compiler image (at the moment heavily tied to script file notcc)
 FROM openjdk:11-jre-slim
 WORKDIR compiler_root
-COPY --from=build /build_root/NotC ./NotC
-COPY --from=build /usr/share/java/cup.jar /usr/share/java/cup.jar
-ENV CLASSPATH=.:/usr/share/java/cup.jar
+COPY --from=build /build_root/notc ./notc
+COPY --from=build /build_root/lib/antlr4.jar ./lib/antlr4.jar
+ENV CLASSPATH=.:/compiler_root/lib/antlr4.jar
 
-ENTRYPOINT ["java", "NotC.Compiler"]
+ENTRYPOINT ["java", "notc.Compiler"]

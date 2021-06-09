@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from os import walk
 from os.path import basename, splitext, abspath
 from subprocess import run, DEVNULL
@@ -13,7 +15,7 @@ n_run = 0
 n_passed = 0
 
 def get_exit_error(actual, expected):
-    if actual > 2:
+    if not 0 <= actual < 2:
         return "Unexpected system error"
     return ["Good program ", "Syntax error ", "Type error "] \
            [expected] \
@@ -29,7 +31,7 @@ for test_directory, _, files in walk("."):
     source_files = [f for f in files if splitext(f)[1] == ".notc"]
     for file_name in source_files:
         absolute_path = abspath(test_directory) + "/" + file_name
-        actual_exit = run(["java", "NotC.Compiler", absolute_path], \
+        actual_exit = run(["java", "notc.Compiler", absolute_path],
                           stderr=DEVNULL).returncode
         # TODO: Check if produced output matches expected output
         if actual_exit == expected_exit:
@@ -41,6 +43,6 @@ for test_directory, _, files in walk("."):
                 msg.append(f.read())
             print("\n".join(msg))
         n_run += 1
-        
+
 print(f"Passed {n_passed}/{n_run} tests")
 exit(0 if n_passed == n_run else 1)
