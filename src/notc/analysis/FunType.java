@@ -1,16 +1,14 @@
-package NotC.TypeChecker;
+package notc.analysis;
 
-import NotC.Absyn.Type;
 import java.util.List;
-import java.util.LinkedList;
 import java.util.Collections;
 
 // Class describing a function type: parameter type list and return type
 public class FunType {
-    private LinkedList<Type> paramTypes;
-    private Type returnType;
+    private List<SrcType> paramTypes;
+    private SrcType returnType;
     
-    FunType(Type returnType, LinkedList<Type> paramTypes) {
+    public FunType(SrcType returnType, List<SrcType> paramTypes) {
         this.returnType = returnType;
         this.paramTypes = paramTypes;
     }
@@ -19,11 +17,11 @@ public class FunType {
         return paramTypes.size();
     }
     
-    public List<Type> getParamTypes() {
+    public List<SrcType> getParamTypes() {
         return Collections.unmodifiableList(paramTypes);
     }
     
-    public Type getReturnType() {
+    public SrcType getReturnType() {
         return returnType;
     }
     

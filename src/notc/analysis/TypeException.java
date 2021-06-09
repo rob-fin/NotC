@@ -1,4 +1,4 @@
-package NotC.TypeChecker;
+package notc.analysis;
 
 public class TypeException extends RuntimeException {
 
