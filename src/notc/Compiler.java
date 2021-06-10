@@ -10,41 +10,43 @@ import java.io.*;
 
 
 public class Compiler {
-    
+
     public static void main(String[] args) {
-        
         if (args.length != 1)
             return;
-        
         String srcFile = args[0];
-        
         int exitCode = 0;
+
         try {
             CharStream input = CharStreams.fromFileName(srcFile);
-            NotCLexer lexer = new NotCLexer(input);
+
+            // Lex
+            BailingLexer lexer = new BailingLexer(input);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
+
+            // Parse
             NotCParser parser = new NotCParser(tokens);
             parser.setErrorHandler(new BailErrorStrategy());
-            ParseTree ast = parser.program(); // parse
-        
-            //new CheckProgram().visit(ast);
+            ParseTree ast = parser.program(); ;
+
+            // Type check
             ast.accept(new ProgramChecker());
 
         } catch (LexerNoViableAltException e) {
             System.out.print(e.getMessage());
             exitCode = 1;
         } catch (ParseCancellationException e) {
-            System.out.print(e.getMessage());
+            System.err.println(e.getMessage());
             exitCode = 1;
         } catch (TypeException e) {
-            System.out.print(e.getMessage());
+            System.err.println(e.getMessage());
             exitCode = 2;
         } catch (IOException e) {
-            System.err.print(srcFile + ": No such file");
+            System.err.println(srcFile + ": No such file");
             e.printStackTrace();
             exitCode = 3;
         }
         System.exit(exitCode);
     }
-    
+
 }
