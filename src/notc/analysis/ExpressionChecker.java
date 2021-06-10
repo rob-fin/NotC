@@ -1,14 +1,38 @@
 package notc.analysis;
 
-import notc.analysis.NotCParser.*;
+import notc.analysis.NotCParser.ExpContext;
+import notc.analysis.NotCParser.FalseLitExpContext;
+import notc.analysis.NotCParser.TrueLitExpContext;
+import notc.analysis.NotCParser.DoubleLitExpContext;
+import notc.analysis.NotCParser.IntLitExpContext;
+import notc.analysis.NotCParser.StringLitExpContext;
+import notc.analysis.NotCParser.VarExpContext;
+import notc.analysis.NotCParser.FunCallExpContext;
+import notc.analysis.NotCParser.AssExpContext;
+import notc.analysis.NotCParser.MulExpContext;
+import notc.analysis.NotCParser.DivExpContext;
+import notc.analysis.NotCParser.AddExpContext;
+import notc.analysis.NotCParser.SubExpContext;
+import notc.analysis.NotCParser.PostIncrExpContext;
+import notc.analysis.NotCParser.PostDecrExpContext;
+import notc.analysis.NotCParser.PreIncrExpContext;
+import notc.analysis.NotCParser.PreDecrExpContext;
+import notc.analysis.NotCParser.LtExpContext;
+import notc.analysis.NotCParser.GtExpContext;
+import notc.analysis.NotCParser.GEqExpContext;
+import notc.analysis.NotCParser.LEqExpContext;
+import notc.analysis.NotCParser.EqExpContext;
+import notc.analysis.NotCParser.NEqExpContext;
+import notc.analysis.NotCParser.AndExpContext;
+import notc.analysis.NotCParser.OrExpContext;
 
 import java.util.List;
 
 /* Visitor class that type checks expressions.
- * Each visit method infers the type of the expression it was called on
- * and annotates the corresponding abstract syntax object with it.
+/* Each visit method infers the type of the expression it was called on
+ * and annotates the corresponding tree node with it.
  * The type is also returned to the caller because the expression
- * may be part of a larger expression whose type depends on it.
+ * may be part of a larger one whose type depends on it.
  * If a type cannot be inferred, an exception is thrown. */
 class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     private SymbolTable symTab;

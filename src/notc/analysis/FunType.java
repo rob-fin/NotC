@@ -7,22 +7,22 @@ import java.util.Collections;
 public class FunType {
     private List<SrcType> paramTypes;
     private SrcType returnType;
-    
+
     public FunType(SrcType returnType, List<SrcType> paramTypes) {
         this.returnType = returnType;
         this.paramTypes = paramTypes;
     }
-    
-    public int getArity() {
+
+    public int arity() {
         return paramTypes.size();
     }
-    
-    public List<SrcType> getParamTypes() {
+
+    public List<SrcType> paramTypes() {
         return Collections.unmodifiableList(paramTypes);
     }
-    
-    public SrcType getReturnType() {
+
+    public SrcType returnType() {
         return returnType;
     }
-    
+
 }

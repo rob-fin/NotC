@@ -1,19 +1,28 @@
 package notc;
 
-import notc.analysis.*;
-import org.antlr.v4.runtime.*;
+import notc.analysis.BailingLexer;
+import notc.analysis.NotCParser;
+import notc.analysis.ProgramChecker;
+import notc.analysis.TypeException;
+
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.LexerNoViableAltException;
+import org.antlr.v4.runtime.BailErrorStrategy;
+import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
-import java.io.*;
-
-
+import java.io.IOException;
 
 public class Compiler {
 
     public static void main(String[] args) {
+
         if (args.length != 1)
             return;
+
         String srcFile = args[0];
         int exitCode = 0;
 
@@ -27,10 +36,12 @@ public class Compiler {
             // Parse
             NotCParser parser = new NotCParser(tokens);
             parser.setErrorHandler(new BailErrorStrategy());
-            ParseTree ast = parser.program(); ;
+            ParseTree tree = parser.program(); ;
 
             // Type check
-            ast.accept(new ProgramChecker());
+            tree.accept(new ProgramChecker());
+
+            // Generate code...
 
         } catch (LexerNoViableAltException e) {
             System.out.print(e.getMessage());
