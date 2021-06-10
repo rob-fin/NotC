@@ -95,7 +95,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         FunType sig = symTab.lookupFun(id);
         List<ExpContext> args = callExp.exp();
         if (sig.arity() != args.size())
-            throw new TypeException("Wrong number of arguments to function " + id);
+            throw new TypeException("Wrong number of " +
+                                    "arguments to function " + id);
         // Check types of argument expressions against parameters
         int i = 0;
         for (SrcType t : sig.paramTypes())
@@ -116,7 +117,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         SrcType t1 = visit(opnd1);
         SrcType t2 = visit(opnd2);
         if (!t1.isNumerical() || !t2.isNumerical())
-            throw new TypeException("Attempted arithmetic on non-numerical expression");
+            throw new TypeException("Attempted arithmetic " +
+                                    "on non-numerical expression");
         if (t1.isDouble() || t2.isDouble())
             return SrcType.DOUBLE;
         return SrcType.INT;
