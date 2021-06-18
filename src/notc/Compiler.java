@@ -1,6 +1,7 @@
 package notc;
 
-import notc.analysis.BailingLexer;
+import notc.analysis.BailingErrorListener;
+import notc.analysis.NotCLexer;
 import notc.analysis.NotCParser;
 import notc.analysis.ProgramChecker;
 import notc.analysis.TypeException;
@@ -8,12 +9,10 @@ import notc.analysis.TypeException;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.LexerNoViableAltException;
-import org.antlr.v4.runtime.BailErrorStrategy;
-import org.antlr.v4.runtime.BailErrorStrategy;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
+import java.io.PrintWriter;
 import java.io.IOException;
 
 public class Compiler {
@@ -24,40 +23,53 @@ public class Compiler {
             return;
 
         String srcFile = args[0];
+        String outFile = stripExtension(srcFile) + ".output";
+
+        // 0: ok, 1: syntax error, 2: type error, 3: source file not found
         int exitCode = 0;
 
-        try {
+        try (PrintWriter out = new PrintWriter(outFile)) {
             CharStream input = CharStreams.fromFileName(srcFile);
+            BailingErrorListener listener = new BailingErrorListener();
 
             // Lex
-            BailingLexer lexer = new BailingLexer(input);
+            NotCLexer lexer = new NotCLexer(input);
+            lexer.removeErrorListeners();
+            lexer.addErrorListener(listener);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
 
             // Parse
             NotCParser parser = new NotCParser(tokens);
-            parser.setErrorHandler(new BailErrorStrategy());
-            ParseTree tree = parser.program(); ;
+            parser.removeErrorListeners();
+            parser.addErrorListener(listener);
+            ParseTree tree = parser.program();
 
             // Type check
             tree.accept(new ProgramChecker());
 
-            // Generate code...
+            // TODO: Generate Java bytecode
+            // Output abstract syntax tree for now...
+            out.print(tree.toStringTree(parser));
 
-        } catch (LexerNoViableAltException e) {
-            System.out.print(e.getMessage());
-            exitCode = 1;
         } catch (ParseCancellationException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Syntax error: " + e.getMessage());
             exitCode = 1;
         } catch (TypeException e) {
-            System.err.println(e.getMessage());
+            System.err.println("Type error: " + e.getMessage());
             exitCode = 2;
         } catch (IOException e) {
             System.err.println(srcFile + ": No such file");
             e.printStackTrace();
             exitCode = 3;
         }
+
         System.exit(exitCode);
+    }
+
+    // Utility for removing extensions from file names
+    private static String stripExtension(String srcFile) {
+        int lastDot = srcFile.lastIndexOf(".");
+        return lastDot < 0 ? srcFile : srcFile.substring(0, lastDot);
     }
 
 }
