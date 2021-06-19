@@ -26,6 +26,8 @@ import notc.analysis.NotCParser.NEqExpContext;
 import notc.analysis.NotCParser.AndExpContext;
 import notc.analysis.NotCParser.OrExpContext;
 
+import org.antlr.v4.runtime.Token;
+
 import java.util.List;
 
 /* Visitor class that type checks expressions.
@@ -47,7 +49,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         if (actual == expected ||
             actual.isInt() && expected.isDouble()) // Also acceptable
             return;
-        throw new TypeException("Expression of type " +
+        throw new TypeException(exp.getStart(),
+                                "Expression of type " +
                                 actual.name().toLowerCase() +
                                 " where expression of type " +
                                 expected.name().toLowerCase() +
@@ -83,20 +86,18 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     // Variable
     @Override
     public SrcType visitVarExp(VarExpContext varExp) {
-        String id = varExp.varId.getText();
-        SrcType t = symTab.lookupVar(id);
+        SrcType t = symTab.lookupVar(varExp.varId);
         return varExp.annot = t;
     }
 
     // Function call: id "(" [exp] ")" -> FunCallExp
     @Override
     public SrcType visitFunCallExp(FunCallExpContext callExp) {
-        String id = callExp.funId.getText();
-        FunType sig = symTab.lookupFun(id);
+        FunType sig = symTab.lookupFun(callExp.funId);
         List<ExpContext> args = callExp.exp();
         if (sig.arity() != args.size())
-            throw new TypeException("Wrong number of " +
-                                    "arguments to function " + id);
+            throw new TypeException(callExp.getStart(),
+                                    "Wrong number of arguments in function call");
         // Check types of argument expressions against parameters
         int i = 0;
         for (SrcType t : sig.paramTypes())
@@ -107,7 +108,7 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     // Assignment: id "=" exp -> AssExp
     @Override
     public SrcType visitAssExp(AssExpContext ass) {
-        SrcType t = symTab.lookupVar(ass.varId.getText());
+        SrcType t = symTab.lookupVar(ass.varId);
         expectType(ass.exp(), t);
         return ass.annot = t;
     }
@@ -117,8 +118,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         SrcType t1 = visit(opnd1);
         SrcType t2 = visit(opnd2);
         if (!t1.isNumerical() || !t2.isNumerical())
-            throw new TypeException("Attempted arithmetic " +
-                                    "on non-numerical expression");
+            throw new TypeException(opnd1.getStart(),
+                                    "Attempted arithmetic on non-numerical expression");
         if (t1.isDouble() || t2.isDouble())
             return SrcType.DOUBLE;
         return SrcType.INT;
@@ -153,39 +154,40 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     }
 
     // Utility function to infer and check increments and decrements
-    private SrcType checkIncrDecr(String id) {
-        SrcType t = symTab.lookupVar(id);
+    private SrcType checkIncrDecr(Token varId) {
+        SrcType t = symTab.lookupVar(varId);
         if (t.isNumerical())
             return t;
-        throw new TypeException("Attempted increment or decrement of " +
-                                "variable that was not int or double");
+        throw new TypeException(varId,
+                                "Attempted increment or decrement " +
+                                "of variable that was not int or double");
     }
 
     // id "++" -> PostIncrExp
     @Override
     public SrcType visitPostIncrExp(PostIncrExpContext postIncrExp) {
-        SrcType t = checkIncrDecr(postIncrExp.varId.getText());
+        SrcType t = checkIncrDecr(postIncrExp.varId);
         return postIncrExp.annot = t;
     }
 
     // id "--" -> PostDecrExp
     @Override
     public SrcType visitPostDecrExp(PostDecrExpContext postDecrExp) {
-        SrcType t = checkIncrDecr(postDecrExp.varId.getText());
+        SrcType t = checkIncrDecr(postDecrExp.varId);
         return postDecrExp.annot = t;
     }
 
     // "++" id -> PreIncrExp
     @Override
     public SrcType visitPreIncrExp(PreIncrExpContext preIncrExp) {
-        SrcType t = checkIncrDecr(preIncrExp.varId.getText());
+        SrcType t = checkIncrDecr(preIncrExp.varId);
         return preIncrExp.annot = t;
     }
 
     // "--" id -> PreDecrExp
     @Override
     public SrcType visitPreDecrExp(PreDecrExpContext preDecrExp) {
-        SrcType t = checkIncrDecr(preDecrExp.varId.getText());
+        SrcType t = checkIncrDecr(preDecrExp.varId);
         return preDecrExp.annot = t;
     }
 
@@ -198,7 +200,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         if (t1.isNumerical() && t2.isNumerical() ||
             t1.isBool() && t2.isBool())
             return;
-        throw new TypeException("Ill-typed boolean operation");
+        throw new TypeException(opnd1.getStart(),
+                                "Ill-typed comparison expression");
     }
 
     // exp "<" exp-> LtExp
@@ -249,7 +252,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         SrcType t2 = visit(opnd2);
         if (t1.isBool() && t2.isBool())
             return;
-        throw new TypeException("Ill-typed boolean operation");
+        throw new TypeException(opnd1.getStart(),
+                                "Ill-typed boolean expression");
     }
 
     // exp "&&" exp -> AndExp

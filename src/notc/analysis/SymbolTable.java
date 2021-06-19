@@ -1,5 +1,7 @@
 package notc.analysis;
 
+import org.antlr.v4.runtime.Token;
+
 import java.util.List;
 import java.util.LinkedList;
 import java.util.HashMap;
@@ -19,15 +21,16 @@ public class SymbolTable {
     }
 
     // Called in a first pass through the program to add all function declarations
-    void addFun(String id, FunType ft) {
-        if (signatures.containsKey(id))
-            throw new TypeException("Re-definition of function " + id);
-        signatures.put(id, ft);
+    void addFun(Token idTok, FunType ft) {
+        String funId = idTok.getText();
+        if (signatures.containsKey(funId))
+            throw new TypeException(idTok, "Re-definition of function");
+        signatures.put(funId, ft);
     }
 
     /* When a function body is to be type checked,
      * add its parameters as local variables. */
-    void setContext(List<SrcType> paramTypes, List<String> paramIds) {
+    void setContext(List<SrcType> paramTypes, List<Token> paramIds) {
         vars.clear();
         pushScope();
         // Guaranteed by parser to be of same length
@@ -47,30 +50,36 @@ public class SymbolTable {
     }
 
     // Start looking in outermost scope and return when a match is found
-    SrcType lookupVar(String id) {
+    SrcType lookupVar(Token idTok) {
+        String varId = idTok.getText();
         SrcType t;
         for (HashMap<String,SrcType> scope : vars) {
-            t = scope.get(id);
+            t = scope.get(varId);
             if (t != null)
                 return t;
         }
-        throw new TypeException("Undefined variable " + id);
+        throw new TypeException(idTok, "Undefined variable");
     }
 
-    void addVar(SrcType t, String id) {
+    void addVar(SrcType t, Token idTok) {
         if (t.isVoid())
-            throw new TypeException("Variables cannot have type void");
+            throw new TypeException(idTok, "Variables cannot have type void");
         HashMap<String,SrcType> outermostScope = vars.peekFirst();
-        if (outermostScope.containsKey(id))
-            throw new TypeException("Variable " + id + " already defined");
-        outermostScope.put(id, t);
+        String varId = idTok.getText();
+        if (outermostScope.containsKey(varId))
+            throw new TypeException(idTok, "Re-definition of variable");
+        outermostScope.put(varId, t);
     }
 
-    FunType lookupFun(String id) {
-        FunType sig = signatures.get(id);
+    FunType lookupFun(Token idTok) {
+        FunType sig = signatures.get(idTok.getText());
         if (sig != null)
             return sig;
-        throw new TypeException("Undefined function " + id);
+        throw new TypeException(idTok, "Undefined function");
+    }
+
+    FunType lookupMain() {
+        return signatures.get("main");
     }
 
 }

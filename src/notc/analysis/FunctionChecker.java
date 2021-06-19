@@ -11,6 +11,7 @@ import notc.analysis.NotCParser.BlockStmContext;
 import notc.analysis.NotCParser.ReturnStmContext;
 import notc.analysis.NotCParser.InitStmContext;
 
+import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.List;
@@ -30,9 +31,9 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     // Entry point: Add parameters as local variables, then visit each statement
     @Override
     public Void visitDef(DefContext def) {
-        FunType sig = symTab.lookupFun(def.funId.getText());
-        List<String> varIds = NotCParser.transformList(def.params().ID(),
-                                                       TerminalNode::getText);
+        FunType sig = symTab.lookupFun(def.funId);
+        List<Token> varIds = NotCParser.transformList(def.params().ID(),
+                                                      TerminalNode::getSymbol);
         symTab.setContext(sig.paramTypes(), varIds);
         expectedReturn = sig.returnType();
         for (StmContext stm : def.stm())
@@ -44,9 +45,9 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     @Override
     public Void visitDeclStm(DeclStmContext decl) {
         SrcType t = SrcType.resolve(decl.type());
-        List<String> varIds = NotCParser.transformList(decl.ID(),
-                                                       TerminalNode::getText);
-        for (String id : varIds)
+        List<Token> varIds = NotCParser.transformList(decl.ID(),
+                                                      TerminalNode::getSymbol);
+        for (Token id : varIds)
             symTab.addVar(t, id);
         return null;
     }
@@ -55,7 +56,7 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     @Override
     public Void visitInitStm(InitStmContext init) {
         SrcType t = SrcType.resolve(init.type());
-        String id = init.ID().getText();
+        Token id = init.ID().getSymbol();
         ExpContext exp = init.exp();
         expChecker.expectType(exp, t);
         symTab.addVar(t, id);

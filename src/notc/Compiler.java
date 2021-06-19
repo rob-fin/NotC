@@ -52,10 +52,10 @@ public class Compiler {
             out.print(tree.toStringTree(parser));
 
         } catch (ParseCancellationException e) {
-            System.err.println("Syntax error: " + e.getMessage());
+            System.err.println("Syntax error\n" + e.getMessage());
             exitCode = 1;
         } catch (TypeException e) {
-            System.err.println("Type error: " + e.getMessage());
+            System.err.println("Type error\n" + e.getMessage());
             exitCode = 2;
         } catch (IOException e) {
             System.err.println(srcFile + ": No such file");

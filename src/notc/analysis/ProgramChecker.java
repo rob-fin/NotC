@@ -21,12 +21,13 @@ public class ProgramChecker extends NotCBaseVisitor<Void> {
             List<SrcType> paramTypes = NotCParser.transformList(def.params().type(),
                                                                 t -> SrcType.resolve(t));
             FunType signature = new FunType(returnType, paramTypes);
-            String id = def.funId.getText();
-            symTab.addFun(id, signature);
+            symTab.addFun(def.funId, signature);
         }
 
         // Check that main is present and ok
-        FunType mainType = symTab.lookupFun("main");
+        FunType mainType = symTab.lookupMain();
+        if (mainType == null)
+            throw new TypeException("Missing main function");
         if (mainType.arity() != 0)
             throw new TypeException("Non-empty parameter list in function main");
         SrcType mainReturn = mainType.returnType();
