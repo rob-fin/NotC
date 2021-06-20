@@ -5,7 +5,7 @@ import notc.analysis.NotCParser.DefContext;
 
 import java.util.List;
 
-// Visitor for the highest-level construct in the grammar. Entry point for the type checker.
+// Visitor for the highest-level construct in the grammar. Entry point for semantic analysis.
 public class ProgramChecker extends NotCBaseVisitor<Void> {
 
     /* Check the list of function definitions in two passes:
@@ -27,19 +27,20 @@ public class ProgramChecker extends NotCBaseVisitor<Void> {
         // Check that main is present and ok
         FunType mainType = symTab.lookupMain();
         if (mainType == null)
-            throw new TypeException("Missing main function");
+            throw new SemanticException("Missing main function");
         if (mainType.arity() != 0)
-            throw new TypeException("Non-empty parameter list in function main");
+            throw new SemanticException("Non-empty parameter list in function main");
         SrcType mainReturn = mainType.returnType();
         if (!mainReturn.isVoid())
-            throw new TypeException("Non-void return type declared for function main");
+            throw new SemanticException("Non-void return type declared for function main");
 
-        // Type check each function definition
+        // Check each function definition
         FunctionChecker funChecker = new FunctionChecker(symTab);
         for (DefContext def : prog.def())
             def.accept(funChecker);
 
-        // Program is well-typed and now has type annotations to be used by the code generator
+        /* Program is semantically sound and its parse tree now
+         * has type annotations to be used by the code generator. */
         return null;
     }
 

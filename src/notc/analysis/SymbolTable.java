@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.LinkedList;
 import java.util.HashMap;
 
-/* Class used to resolve types in the type checking environment:
+/* Class used to resolve types in the semantic analysis environment:
  * Function ids to signatures and variables to declared types. */
 public class SymbolTable {
 
@@ -24,12 +24,11 @@ public class SymbolTable {
     void addFun(Token idTok, FunType ft) {
         String funId = idTok.getText();
         if (signatures.containsKey(funId))
-            throw new TypeException(idTok, "Re-definition of function");
+            throw new SemanticException(idTok, "Re-definition of function");
         signatures.put(funId, ft);
     }
 
-    /* When a function body is to be type checked,
-     * add its parameters as local variables. */
+    // When a function body is to be checked, add its parameters as local variables.
     void setContext(List<SrcType> paramTypes, List<Token> paramIds) {
         vars.clear();
         pushScope();
@@ -58,16 +57,16 @@ public class SymbolTable {
             if (t != null)
                 return t;
         }
-        throw new TypeException(idTok, "Undefined variable");
+        throw new SemanticException(idTok, "Undefined variable");
     }
 
     void addVar(SrcType t, Token idTok) {
         if (t.isVoid())
-            throw new TypeException(idTok, "Variables cannot have type void");
+            throw new SemanticException(idTok, "Variables cannot have type void");
         HashMap<String,SrcType> outermostScope = vars.peekFirst();
         String varId = idTok.getText();
         if (outermostScope.containsKey(varId))
-            throw new TypeException(idTok, "Re-definition of variable");
+            throw new SemanticException(idTok, "Re-definition of variable");
         outermostScope.put(varId, t);
     }
 
@@ -75,7 +74,7 @@ public class SymbolTable {
         FunType sig = signatures.get(idTok.getText());
         if (sig != null)
             return sig;
-        throw new TypeException(idTok, "Undefined function");
+        throw new SemanticException(idTok, "Undefined function");
     }
 
     FunType lookupMain() {

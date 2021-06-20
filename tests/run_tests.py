@@ -8,7 +8,7 @@ from sys import exit
 exit_codes = {
     "good_programs": 0,
     "syntax_errors": 1,
-    "type_errors":   2,
+    "semantic_errors":   2,
 }
 
 n_run = 0
@@ -17,10 +17,10 @@ n_passed = 0
 def get_exit_error(actual, expected):
     if not 0 <= actual < 2:
         return "Unexpected system error"
-    return ["Good program ", "Syntax error ", "Type error "] \
+    return ["Good program ", "Syntax error ", "Semantic error "] \
            [expected] \
            + \
-           ["not caught", "rejected when parsing", "rejected by type checker"] \
+           ["not caught", "rejected when parsing", "rejected in semantic analysis"] \
            [actual]
 
 # Iterate over each .notc file in the test directories,

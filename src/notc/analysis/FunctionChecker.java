@@ -16,8 +16,8 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.List;
 
-/* Visitor that type checks a function definition's statements.
- * This involves type checking any constituent expressions. */
+/* Visitor that performs semantic analysis on function definitions.
+ * This involves visiting each statement and type checking any constituent expressions. */
 class FunctionChecker extends NotCBaseVisitor<Void> {
     private SymbolTable symTab;
     private SrcType expectedReturn;

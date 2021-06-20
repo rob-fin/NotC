@@ -4,7 +4,7 @@ import notc.analysis.BailingErrorListener;
 import notc.analysis.NotCLexer;
 import notc.analysis.NotCParser;
 import notc.analysis.ProgramChecker;
-import notc.analysis.TypeException;
+import notc.analysis.SemanticException;
 
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
@@ -25,7 +25,7 @@ public class Compiler {
         String srcFile = args[0];
         String outFile = stripExtension(srcFile) + ".output";
 
-        // 0: ok, 1: syntax error, 2: type error, 3: source file not found
+        // 0: ok, 1: syntax error, 2: semantic error, 3: source file not found
         int exitCode = 0;
 
         try (PrintWriter out = new PrintWriter(outFile)) {
@@ -54,8 +54,8 @@ public class Compiler {
         } catch (ParseCancellationException e) {
             System.err.println("Syntax error\n" + e.getMessage());
             exitCode = 1;
-        } catch (TypeException e) {
-            System.err.println("Type error\n" + e.getMessage());
+        } catch (SemanticException e) {
+            System.err.println("Semantic error\n" + e.getMessage());
             exitCode = 2;
         } catch (IOException e) {
             System.err.println(srcFile + ": No such file");

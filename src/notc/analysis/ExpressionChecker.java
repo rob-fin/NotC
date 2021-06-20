@@ -30,12 +30,12 @@ import org.antlr.v4.runtime.Token;
 
 import java.util.List;
 
-/* Visitor class that type checks expressions.
-/* Each visit method infers the type of the expression it was called on
- * and annotates the corresponding tree node with it.
- * The type is also returned to the caller because the expression
+/* Visitor that type checks expressions.
+ * Each visit method infers the type of the expression it was called on
+ * and annotates the corresponding parse tree node with it.
+ * The inferred type is returned to the caller because the expression
  * may be part of a larger one whose type depends on it.
- * If a type cannot be inferred, an exception is thrown. */
+ * If a type cannot be inferred, a SemanticException is thrown. */
 class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     private SymbolTable symTab;
 
@@ -43,18 +43,18 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         this.symTab = symTab;
     }
 
-    // Check if an expression has some expected type 
+    // Check if an expression has some expected type
     void expectType(ExpContext exp, SrcType expected) {
         SrcType actual = visit(exp);
         if (actual == expected ||
             actual.isInt() && expected.isDouble()) // Also acceptable
             return;
-        throw new TypeException(exp.getStart(),
-                                "Expression of type " +
-                                actual.name().toLowerCase() +
-                                " where expression of type " +
-                                expected.name().toLowerCase() +
-                                " was expected");
+        throw new SemanticException(exp.getStart(),
+                                    "Expression of type " +
+                                    actual.name().toLowerCase() +
+                                    " where expression of type " +
+                                    expected.name().toLowerCase() +
+                                    " was expected");
     }
 
     // Literal expressions simply have the type of the literal
@@ -96,8 +96,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         FunType sig = symTab.lookupFun(callExp.funId);
         List<ExpContext> args = callExp.exp();
         if (sig.arity() != args.size())
-            throw new TypeException(callExp.getStart(),
-                                    "Wrong number of arguments in function call");
+            throw new SemanticException(callExp.getStart(),
+                                        "Wrong number of arguments in function call");
         // Check types of argument expressions against parameters
         int i = 0;
         for (SrcType t : sig.paramTypes())
@@ -118,8 +118,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         SrcType t1 = visit(opnd1);
         SrcType t2 = visit(opnd2);
         if (!t1.isNumerical() || !t2.isNumerical())
-            throw new TypeException(opnd1.getStart(),
-                                    "Attempted arithmetic on non-numerical expression");
+            throw new SemanticException(opnd1.getStart(),
+                                        "Attempted arithmetic on non-numerical expression");
         if (t1.isDouble() || t2.isDouble())
             return SrcType.DOUBLE;
         return SrcType.INT;
@@ -158,9 +158,9 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         SrcType t = symTab.lookupVar(varId);
         if (t.isNumerical())
             return t;
-        throw new TypeException(varId,
-                                "Attempted increment or decrement " +
-                                "of variable that was not int or double");
+        throw new SemanticException(varId,
+                                    "Attempted increment or decrement " +
+                                    "of variable that was not int or double");
     }
 
     // id "++" -> PostIncrExp
@@ -200,8 +200,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         if (t1.isNumerical() && t2.isNumerical() ||
             t1.isBool() && t2.isBool())
             return;
-        throw new TypeException(opnd1.getStart(),
-                                "Ill-typed comparison expression");
+        throw new SemanticException(opnd1.getStart(),
+                                    "Ill-typed comparison expression");
     }
 
     // exp "<" exp-> LtExp
@@ -252,8 +252,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         SrcType t2 = visit(opnd2);
         if (t1.isBool() && t2.isBool())
             return;
-        throw new TypeException(opnd1.getStart(),
-                                "Ill-typed boolean expression");
+        throw new SemanticException(opnd1.getStart(),
+                                    "Ill-typed boolean expression");
     }
 
     // exp "&&" exp -> AndExp
