@@ -1,9 +1,7 @@
 grammar NotC;
 
 
-/* Transforming lists of ANTLR-generated parse tree types is done frequently,
- * for example to resolve identifier tokens to the sequence of text strings
- * that were matched in order to generate them.
+/* Transforming lists of ANTLR-generated parse tree types is done frequently.
  * Inject a utility method that does it. */
 
 @header
@@ -62,7 +60,7 @@ stm
 
 /* Expressions in order of decreasing precedence.
  * Adds type annotation to each Exp class in the abstract syntax. */
-exp locals [SrcType annot]
+exp locals [SrcType typeAnnot]
     : 'false'                                       # FalseLitExp
     | 'true'                                        # TrueLitExp
     | DOUBLE_LIT                                    # DoubleLitExp

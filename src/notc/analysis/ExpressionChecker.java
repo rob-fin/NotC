@@ -35,7 +35,8 @@ import java.util.List;
  * and annotates the corresponding parse tree node with it.
  * The inferred type is returned to the caller because the expression
  * may be part of a larger one whose type depends on it.
- * If a type cannot be inferred, a SemanticException is thrown. */
+ * If a type cannot be inferred,
+ * a SemanticException is thrown with the offending token and a message. */
 class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     private SymbolTable symTab;
 
@@ -43,7 +44,7 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         this.symTab = symTab;
     }
 
-    // Check if an expression has some expected type
+    // Utility function to check if an expression has some expected type
     void expectType(ExpContext exp, SrcType expected) {
         SrcType actual = visit(exp);
         if (actual == expected ||
@@ -60,34 +61,40 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     // Literal expressions simply have the type of the literal
     @Override
     public SrcType visitFalseLitExp(FalseLitExpContext falseLitExp) {
-        return falseLitExp.annot = SrcType.BOOL;
+        falseLitExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     @Override
     public SrcType visitTrueLitExp(TrueLitExpContext trueLitExp) {
-        return trueLitExp.annot = SrcType.BOOL;
+        trueLitExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     @Override
     public SrcType visitDoubleLitExp(DoubleLitExpContext doubleLitExp) {
-        return doubleLitExp.annot = SrcType.DOUBLE;
+        doubleLitExp.typeAnnot = SrcType.DOUBLE;
+        return SrcType.DOUBLE;
     }
 
     @Override
     public SrcType visitIntLitExp(IntLitExpContext intLitExp) {
-        return intLitExp.annot = SrcType.INT;
+        intLitExp.typeAnnot = SrcType.INT;
+        return SrcType.INT;
     }
 
     @Override
     public SrcType visitStringLitExp(StringLitExpContext strLitExp) {
-        return strLitExp.annot = SrcType.STRING;
+        strLitExp.typeAnnot = SrcType.STRING;
+        return SrcType.STRING;
     }
 
-    // Variable
+    // Variable: look its type up
     @Override
     public SrcType visitVarExp(VarExpContext varExp) {
         SrcType t = symTab.lookupVar(varExp.varId);
-        return varExp.annot = t;
+        varExp.typeAnnot = t;
+        return t;
     }
 
     // Function call: id "(" [exp] ")" -> FunCallExp
@@ -102,15 +109,17 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         int i = 0;
         for (SrcType t : sig.paramTypes())
             expectType(args.get(i++), t);
-        return callExp.annot = sig.returnType();
+        callExp.typeAnnot = sig.returnType();
+        return sig.returnType();
     }
 
-    // Assignment: id "=" exp -> AssExp
+    // Assignment: id "=" exp -> AssExp, where exp must be inferable to id's declared type
     @Override
     public SrcType visitAssExp(AssExpContext ass) {
         SrcType t = symTab.lookupVar(ass.varId);
         expectType(ass.exp(), t);
-        return ass.annot = t;
+        ass.typeAnnot = t;
+        return t;
     }
 
     // Utility function to infer and check arithmetic expressions
@@ -129,28 +138,32 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     @Override
     public SrcType visitMulExp(MulExpContext mulExp) {
         SrcType t = checkArithmetic(mulExp.opnd1, mulExp.opnd2);
-        return mulExp.annot = t;
+        mulExp.typeAnnot = t;
+        return t;
     }
 
     // exp "/" exp -> DivExp
     @Override
     public SrcType visitDivExp(DivExpContext divExp) {
         SrcType t = checkArithmetic(divExp.opnd1, divExp.opnd2);
-        return divExp.annot = t;
+        divExp.typeAnnot = t;
+        return t;
     }
 
     // exp "+" exp -> AddExp
     @Override
     public SrcType visitAddExp(AddExpContext addExp) {
         SrcType t = checkArithmetic(addExp.opnd1, addExp.opnd2);
-        return addExp.annot = t;
+        addExp.typeAnnot = t;
+        return t;
     }
 
     // exp "-" exp -> SubExp
     @Override
     public SrcType visitSubExp(SubExpContext subExp) {
         SrcType t = checkArithmetic(subExp.opnd1, subExp.opnd2);
-        return subExp.annot = t;
+        subExp.typeAnnot = t;
+        return t;
     }
 
     // Utility function to infer and check increments and decrements
@@ -167,28 +180,32 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     @Override
     public SrcType visitPostIncrExp(PostIncrExpContext postIncrExp) {
         SrcType t = checkIncrDecr(postIncrExp.varId);
-        return postIncrExp.annot = t;
+        postIncrExp.typeAnnot = t;
+        return t;
     }
 
     // id "--" -> PostDecrExp
     @Override
     public SrcType visitPostDecrExp(PostDecrExpContext postDecrExp) {
         SrcType t = checkIncrDecr(postDecrExp.varId);
-        return postDecrExp.annot = t;
+        postDecrExp.typeAnnot = t;
+        return t;
     }
 
     // "++" id -> PreIncrExp
     @Override
     public SrcType visitPreIncrExp(PreIncrExpContext preIncrExp) {
         SrcType t = checkIncrDecr(preIncrExp.varId);
-        return preIncrExp.annot = t;
+        preIncrExp.typeAnnot = t;
+        return t;
     }
 
     // "--" id -> PreDecrExp
     @Override
     public SrcType visitPreDecrExp(PreDecrExpContext preDecrExp) {
         SrcType t = checkIncrDecr(preDecrExp.varId);
-        return preDecrExp.annot = t;
+        preDecrExp.typeAnnot = t;
+        return t;
     }
 
     /* Utility function to check comparison expressions.
@@ -208,42 +225,47 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     @Override
     public SrcType visitLtExp(LtExpContext ltExp) {
         checkComparison(ltExp.opnd1, ltExp.opnd2);
-        return ltExp.annot = SrcType.BOOL;
+        return ltExp.typeAnnot = SrcType.BOOL;
     }
 
-    // exp ">" exp-> GtExp 
+    // exp ">" exp-> GtExp
     @Override
     public SrcType visitGtExp(GtExpContext gtExp) {
         checkComparison(gtExp.opnd1, gtExp.opnd2);
-        return gtExp.annot = SrcType.BOOL;
+        gtExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     // exp ">=" exp-> GEqExp
     @Override
     public SrcType visitGEqExp(GEqExpContext GEqExp) {
         checkComparison(GEqExp.opnd1, GEqExp.opnd2);
-        return GEqExp.annot = SrcType.BOOL;
+        GEqExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     // exp "<=" exp-> LEqExp
     @Override
     public SrcType visitLEqExp(LEqExpContext LEqExp) {
         checkComparison(LEqExp.opnd1, LEqExp.opnd2);
-        return LEqExp.annot = SrcType.BOOL;
+        LEqExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     // exp "==" exp-> EqExp
     @Override
     public SrcType visitEqExp(EqExpContext EqExp) {
         checkComparison(EqExp.opnd1, EqExp.opnd2);
-        return EqExp.annot = SrcType.BOOL;
+        EqExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     // exp "!=" exp-> NEqExp
     @Override
     public SrcType visitNEqExp(NEqExpContext NEqExp) {
         checkComparison(NEqExp.opnd1, NEqExp.opnd2);
-        return NEqExp.annot = SrcType.BOOL;
+        NEqExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     // Utility function to check boolean expressions
@@ -260,14 +282,16 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     @Override
     public SrcType visitAndExp(AndExpContext andExp) {
         checkBoolean(andExp.opnd1, andExp.opnd2);
-        return andExp.annot = SrcType.BOOL;
+        andExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
     // exp "||" exp -> OrExp
     @Override
     public SrcType visitOrExp(OrExpContext orExp) {
         checkBoolean(orExp.opnd1, orExp.opnd2);
-        return orExp.annot = SrcType.BOOL;
+        orExp.typeAnnot = SrcType.BOOL;
+        return SrcType.BOOL;
     }
 
 }
