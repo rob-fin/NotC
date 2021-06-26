@@ -1,0 +1,11 @@
+// Not allowed
+
+void fun() {
+}
+
+int fun(double x) { 
+    return 1;
+}
+
+void main() {
+}

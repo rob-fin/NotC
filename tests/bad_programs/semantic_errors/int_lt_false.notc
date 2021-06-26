@@ -1,7 +1,0 @@
-int main() {
-    if (3 < false) {
-        return 0;
-    } else {
-        return 1;
-    }
-}

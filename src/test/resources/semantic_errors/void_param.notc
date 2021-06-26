@@ -1,0 +1,6 @@
+bool fun(void param) {
+    return true;
+}
+
+void main() {
+}

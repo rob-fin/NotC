@@ -1,0 +1,6 @@
+void main() {
+}
+
+int fun() {
+    return 676 / main();
+}

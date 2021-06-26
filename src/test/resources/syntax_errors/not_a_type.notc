@@ -1,0 +1,3 @@
+void main () {
+    not_a_type x = 54;
+}

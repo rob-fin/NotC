@@ -1,0 +1,10 @@
+void give_me_int(int num) {
+}
+
+void main() {
+    int i = 10;
+    {
+        string i = "";
+        give_me_int(i);
+    }
+}

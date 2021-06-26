@@ -1,0 +1,5 @@
+void main() {
+    string s = "jklk";
+    while (true && s) {
+    }
+}

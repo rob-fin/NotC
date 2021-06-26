@@ -1,0 +1,8 @@
+int fun() {
+    if (true > "fdashg") {
+        return;
+    }
+}
+
+void main() {
+}

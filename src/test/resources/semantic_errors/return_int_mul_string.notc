@@ -1,0 +1,6 @@
+void main() {
+}
+
+double fun() {
+    return 2432 * "RRRRRRRRRR";
+}

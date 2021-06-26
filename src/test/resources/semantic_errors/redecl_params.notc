@@ -1,0 +1,6 @@
+bool fun(string s, string s) {
+    return s;
+}
+
+void main() {
+}

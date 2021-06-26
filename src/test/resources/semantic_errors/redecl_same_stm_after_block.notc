@@ -1,0 +1,7 @@
+void main() {
+    int a = 43;
+    {
+        double d;
+    }
+    int b, a;
+}

@@ -1,0 +1,3 @@
+void main() {
+    (true == true)(1, 2);
+}

@@ -1,0 +1,6 @@
+void fun(int a, int b) {
+}
+
+void main() {
+    fun(1, "string");
+}

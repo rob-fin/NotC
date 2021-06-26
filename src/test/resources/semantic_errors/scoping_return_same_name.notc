@@ -1,0 +1,11 @@
+void main() {
+}
+
+int fun() {
+    int returnValue = 0;
+    {
+        string returnValue = "hej";
+        return returnValue;
+    }
+    return returnValue;
+}

@@ -1,0 +1,6 @@
+void fun(bool a, string b) {
+}
+
+void main() {
+    fun(true, 54);
+}

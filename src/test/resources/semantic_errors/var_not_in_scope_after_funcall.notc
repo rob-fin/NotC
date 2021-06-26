@@ -1,0 +1,8 @@
+void main() {
+    int x = 10;
+    int i = fun();
+}
+
+int fun() {
+    return x;
+}

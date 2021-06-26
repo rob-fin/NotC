@@ -1,0 +1,6 @@
+int fun(int n) {
+    int n;
+}
+
+void main() {
+}

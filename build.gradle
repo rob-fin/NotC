@@ -1,0 +1,42 @@
+plugins {
+    id 'antlr'
+    id 'java'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    antlr 'org.antlr:antlr4:4.9.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.1'
+    testCompileOnly 'org.junit.jupiter:junit-jupiter-api:5.7.1'
+    testImplementation 'commons-io:commons-io:2.10.0'
+}
+
+generateGrammarSource {
+    arguments = ["-package", "notc.analysis", "-no-listener", "-visitor"]
+}
+
+compileJava {
+    dependsOn(generateGrammarSource)
+}
+
+test {
+    useJUnitPlatform()
+    dependsOn(cleanTest)
+    testLogging {
+        events "STANDARD_OUT"
+    }
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'notc.Compiler'
+    }
+    from {
+        configurations.antlr.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
+}

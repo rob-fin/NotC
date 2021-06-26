@@ -1,8 +1,0 @@
-int main() {
-    if (true)
-        int i = 0;
-    else
-        i = 1;
-    
-    return 0;
-}

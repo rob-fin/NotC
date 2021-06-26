@@ -1,0 +1,7 @@
+void main() {
+    while (true || f()) {
+    }
+}
+
+void f() {
+}

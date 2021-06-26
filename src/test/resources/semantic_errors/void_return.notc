@@ -1,0 +1,7 @@
+void fun() {
+    return 453;
+}
+
+void main() {
+    fun();
+}
