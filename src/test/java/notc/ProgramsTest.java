@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.AfterAll;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
+import com.github.stefanbirkner.systemlambda.SystemLambda;
 
 import java.io.File;
 import java.util.Map;
@@ -13,6 +14,8 @@ import java.util.Map;
  * should compile and ones that should be rejected at different compilation stages.
  * For each file run, the exit code returned from the compiler is checked against
  * the one expected for the file.
+ * Instead of launching a new process for every file, the main method of the
+ * compiler is called.
  * TODO once code generator is in place:
  * Also check if produced output matches expected output. */
 class ProgramsTest {
@@ -20,12 +23,7 @@ class ProgramsTest {
     private static int nPassed = 0;
 
     // Test program directories are on the classpathh
-    private ClassLoader classLoader = getClass().getClassLoader();
-    // The launched processes should have same classpath and run in new JVMs
-    private String javaBin = System.getProperty("java.home") +
-            File.separator + "bin" +
-            File.separator + "java";
-    private String classpath = System.getProperty("java.class.path");
+    ClassLoader classLoader = getClass().getClassLoader();
 
     // Test category -> Expected exit code
     private Map<String,Integer> exitByCategory = Map.of(
@@ -57,15 +55,14 @@ class ProgramsTest {
 
             for (File sourceFile : FileUtils.listFiles(testDir, notcFilter, null)) {
                 String filePath = sourceFile.getAbsolutePath();
-                ProcessBuilder pb = new ProcessBuilder(javaBin, "-cp", classpath,
-                                                       "notc.Compiler", filePath);
-                Process p = pb.start();
-                p.waitFor();
-                int actualExit = p.exitValue();
+                // Read the exit code and prevent the JVM from terminating
+                int actualExit = SystemLambda.catchSystemExit( () ->
+                    Compiler.main(new String[]{filePath})
+                );
                 if (actualExit == expectedExit) {
                     nPassed += 1;
                 } else {
-                    // stderr is suppressed to avoid compiler output, so use stdout
+                    // System.err is suppressed to avoid compiler output, so use System.out
                     System.out.println(sourceFile.getName() + " in " + testCategory + ":");
                     System.out.println(FileUtils.readFileToString(sourceFile, "UTF-8"));
                     System.out.println(msgByExit.getOrDefault(actualExit,
