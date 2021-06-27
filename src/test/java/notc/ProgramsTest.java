@@ -1,76 +1,76 @@
 package notc;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.filefilter.SuffixFileFilter;
 import com.github.stefanbirkner.systemlambda.SystemLambda;
 
 import java.io.File;
+import java.util.function.Function;
 import java.util.Map;
 
-/* The compiler is run with a lot of test program source files, both ones that
- * should compile and ones that should be rejected at different compilation stages.
- * For each file run, the exit code returned from the compiler is checked against
- * the one expected for the file.
- * Instead of launching a new process for every file, the main method of the
- * compiler is called.
- * TODO once code generator is in place:
- * Also check if produced output matches expected output. */
+/* The compiler is run with a lot of test program source files: ones that should compile, ones that
+ * should be rejected by the parser, and ones that should be rejected during semantic analysis.
+ * The class expects that files in these test categories reside on the classpath
+ * in directories named "good_programs", "syntax_errors", and "semantic_errors", */
 class ProgramsTest {
+
     private static int nRun = 0;
     private static int nPassed = 0;
 
-    // Test program directories are on the classpathh
-    ClassLoader classLoader = getClass().getClassLoader();
+    private ClassLoader classLoader = getClass().getClassLoader();
 
-    // Test category -> Expected exit code
-    private Map<String,Integer> exitByCategory = Map.of(
-        "good_programs",   0,
-        "syntax_errors",   1,
-        "semantic_errors", 2
-    );
-
-    // Actual exit code -> Test failure message
-    private Map<Integer,String> msgByExit = Map.of(
-        0, "Not caught",
-        1, "Rejected when parsing",
-        2, "Rejected during semantic analysis"
-    );
-
-    /* Iterate over each .notc file in the test directories,
-     * run the compiler with it, and check exit status. */
+    /* Iterate over the source files in the test directories and run the compiler with them.
+     * For each file run, capture the compiler's System.err output
+     * and check it against the expectation for the category to which the file belongs. */
     @Test
+    @Order(1)
     void compilePrograms() throws Exception {
+
+        // Test category -> Assertion function over compiler error messages
+        Map<String,Function<String,Boolean>> assertorByCategory = Map.of(
+            "good_programs",   sysErr -> sysErr.isEmpty(),
+            "syntax_errors",   sysErr -> sysErr.startsWith("Syntax error"),
+            "semantic_errors", sysErr -> sysErr.startsWith("Semantic error")
+        );
+
         SuffixFileFilter notcFilter = new SuffixFileFilter("notc");
 
-        for (Map.Entry<String,Integer> entry : exitByCategory.entrySet()) {
-
-            String testCategory = entry.getKey();
-            int expectedExit = entry.getValue();
-
+        for (String testCategory : assertorByCategory.keySet()) {
             String categoryPath = classLoader.getResource(testCategory).getFile();
             File testDir = new File(categoryPath);
+            Function<String,Boolean> assertor = assertorByCategory.get(testCategory);
 
             for (File sourceFile : FileUtils.listFiles(testDir, notcFilter, null)) {
                 String filePath = sourceFile.getAbsolutePath();
-                // Read the exit code and prevent the JVM from terminating
-                int actualExit = SystemLambda.catchSystemExit( () ->
-                    Compiler.main(new String[]{filePath})
-                );
-                if (actualExit == expectedExit) {
+                /* Instead of launching a new process (and JVM) for every file:
+                 * Call main method and prevent JVM from terminating. */
+                String sysErr = SystemLambda.tapSystemErr( () -> {
+                    SystemLambda.catchSystemExit( () ->
+                        Compiler.main(new String[]{filePath})
+                    );
+                });
+
+                nRun += 1;
+                if (assertor.apply(sysErr)) {
                     nPassed += 1;
                 } else {
-                    // System.err is suppressed to avoid compiler output, so use System.out
-                    System.out.println(sourceFile.getName() + " in " + testCategory + ":");
-                    System.out.println(FileUtils.readFileToString(sourceFile, "UTF-8"));
-                    System.out.println(msgByExit.getOrDefault(actualExit,
-                                                              "Unexpected system error"));
+                    System.err.println(sourceFile.getName() + " in " + testCategory + ":");
+                    System.err.println(FileUtils.readFileToString(sourceFile, "UTF-8"));
+                    System.err.println("Compiler's System.err: " + sysErr);
                 }
-                nRun += 1;
             }
         }
+    }
+
+    /* TODO once code generator is in place: Run the programs that compiled
+     * and check if their produced output matches their expected output. */
+    @Test
+    @Order(2)
+    void checkOutput() {
     }
 
     @AfterAll

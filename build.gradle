@@ -27,7 +27,7 @@ test {
     useJUnitPlatform()
     dependsOn(cleanTest)
     testLogging {
-        events "STANDARD_OUT"
+        events "STANDARD_ERROR"
     }
 }
 

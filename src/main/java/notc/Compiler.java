@@ -18,14 +18,18 @@ import java.io.IOException;
 public class Compiler {
 
     public static void main(String[] args) {
-        if (args.length != 1)
+        if (args.length != 1) {
+            System.out.println("Usage: java -jar NotC.jar <source file>");
             return;
+        }
 
-        String srcFile = args[0];
-        String outFile = stripExtension(srcFile) + ".output";
+        int exitStatus = compile(args[0]);
+        System.exit(exitStatus);
+    }
 
-        // 0: ok, 1: syntax error, 2: semantic error, 3: source file not found
-        int exitCode = 0;
+    private static int compile(String srcFile) {
+
+        String outFile = stripExtension(srcFile) + ".class";
 
         try (PrintWriter out = new PrintWriter(outFile)) {
             CharStream input = CharStreams.fromFileName(srcFile);
@@ -51,18 +55,18 @@ public class Compiler {
             out.print(tree.toStringTree(parser));
 
         } catch (ParseCancellationException e) {
-            System.err.println("Syntax error\n" + e.getMessage());
-            exitCode = 1;
+            System.err.println("Syntax error" + System.lineSeparator() + e.getMessage());
+            return 1;
         } catch (SemanticException e) {
-            System.err.println("Semantic error\n" + e.getMessage());
-            exitCode = 2;
+            System.err.println("Semantic error" + System.lineSeparator() + e.getMessage());
+            return 1;
         } catch (IOException e) {
             System.err.println(srcFile + ": No such file");
             e.printStackTrace();
-            exitCode = 3;
+            return 1;
         }
 
-        System.exit(exitCode);
+        return 0;
     }
 
     // Utility for removing extensions from file names
