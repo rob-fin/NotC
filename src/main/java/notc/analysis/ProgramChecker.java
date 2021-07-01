@@ -3,6 +3,8 @@ package notc.analysis;
 import notc.analysis.NotCParser.ProgramContext;
 import notc.analysis.NotCParser.DefContext;
 
+import com.google.common.collect.Lists;
+
 import java.util.List;
 
 // Visitor for the highest-level construct in the grammar. Entry point for semantic analysis.
@@ -18,8 +20,8 @@ public class ProgramChecker extends NotCBaseVisitor<Void> {
         // Populate symbol table with functions
         for (DefContext def : prog.def()) {
             SrcType returnType = SrcType.resolve(def.returnType);
-            List<SrcType> paramTypes = NotCParser.transformList(def.params().type(),
-                                                                t -> SrcType.resolve(t));
+            List<SrcType> paramTypes = Lists.transform(def.params().type(),
+                                                       t -> SrcType.resolve(t));
             FunType signature = new FunType(returnType, paramTypes);
             symTab.addFun(def.funId, signature);
         }

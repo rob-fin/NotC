@@ -1,30 +1,5 @@
 grammar NotC;
 
-
-/* Transforming lists of ANTLR-generated parse tree types is done frequently.
- * Inject a utility method that does it. */
-
-@header
-{
-import java.util.function.Function;
-import java.util.Collections;
-import java.util.stream.Collectors;
-}
-
-@parser::members
-{
-    // Return a list obtained by applying parameter op to each element in parameter treeList
-    public static <R,ParseTree> List<R> transformList(List<ParseTree> treeList,
-                                                      Function<ParseTree,R> op) {
-        if (treeList == null)
-            return Collections.<R>emptyList();
-        return treeList.stream().map(op).collect(Collectors.toList());
-    }
-}
-
-
-/* Grammar start */
-
 // Program: list of function definitions
 program
     : def* EOF

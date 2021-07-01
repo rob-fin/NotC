@@ -13,6 +13,7 @@ import notc.analysis.NotCParser.InitStmContext;
 
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 
@@ -33,8 +34,8 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     @Override
     public Void visitDef(DefContext def) {
         FunType sig = symTab.lookupFun(def.funId);
-        List<Token> varIds = NotCParser.transformList(def.params().ID(),
-                                                      TerminalNode::getSymbol);
+        List<Token> varIds = Lists.transform(def.params().ID(),
+                                            TerminalNode::getSymbol);
         symTab.setContext(sig.paramTypes(), varIds);
         expectedReturn = sig.returnType();
         for (StmContext stm : def.stm())
@@ -46,8 +47,8 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     @Override
     public Void visitDeclStm(DeclStmContext decl) {
         SrcType t = SrcType.resolve(decl.type());
-        List<Token> varIds = NotCParser.transformList(decl.ID(),
-                                                      TerminalNode::getSymbol);
+        List<Token> varIds = Lists.transform(decl.ID(),
+                                             TerminalNode::getSymbol);
         for (Token id : varIds)
             symTab.addVar(t, id);
         return null;
