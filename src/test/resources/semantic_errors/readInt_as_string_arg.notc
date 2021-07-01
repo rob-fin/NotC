@@ -1,0 +1,6 @@
+void takesString(string s) {
+}
+
+void main() {
+    takesString(readInt());
+}

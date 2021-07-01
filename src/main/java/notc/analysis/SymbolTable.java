@@ -2,6 +2,7 @@ package notc.analysis;
 
 import org.antlr.v4.runtime.Token;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.LinkedList;
 import java.util.HashMap;
@@ -18,6 +19,13 @@ public class SymbolTable {
     SymbolTable() {
         signatures = new HashMap<String,FunType>();
         vars = new LinkedList<HashMap<String,SrcType>>();
+        // Add signatures of built-in functions
+        signatures.put("printInt",    new FunType(SrcType.VOID,    List.of(SrcType.INT)));
+        signatures.put("printDouble", new FunType(SrcType.VOID,    List.of(SrcType.DOUBLE)));
+        signatures.put("printString", new FunType(SrcType.VOID,    List.of(SrcType.STRING)));
+        signatures.put("readInt",     new FunType(SrcType.INT,     Collections.emptyList()));
+        signatures.put("readDouble",  new FunType(SrcType.DOUBLE,  Collections.emptyList()));
+        signatures.put("readString",  new FunType(SrcType.STRING,  Collections.emptyList()));
     }
 
     // Called in a first pass through the program to add all function declarations

@@ -1,0 +1,7 @@
+bool returnsBool() {
+    return true;
+}
+
+void main() {
+    printString(returnsBool);
+}

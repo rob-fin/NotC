@@ -1,0 +1,7 @@
+string returnsString() {
+    return "klhlfgljk";
+}
+
+void main() {
+    printDouble(returnsString);
+}

@@ -1,0 +1,6 @@
+void takesDouble(double d) {
+}
+
+void main() {
+    takesDouble(readString());
+}

@@ -1,0 +1,7 @@
+double returnsDouble() {
+    return 2.0;
+}
+
+void main() {
+    printInt(returnsDouble);
+}
