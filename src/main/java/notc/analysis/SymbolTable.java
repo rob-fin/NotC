@@ -85,8 +85,4 @@ public class SymbolTable {
         throw new SemanticException(idTok, "Undefined function");
     }
 
-    FunType lookupMain() {
-        return signatures.get("main");
-    }
-
 }

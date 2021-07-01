@@ -3,6 +3,7 @@ package notc.analysis;
 import notc.analysis.NotCParser.ProgramContext;
 import notc.analysis.NotCParser.DefContext;
 
+import org.antlr.v4.runtime.CommonToken;
 import com.google.common.collect.Lists;
 
 import java.util.List;
@@ -27,9 +28,7 @@ public class ProgramChecker extends NotCBaseVisitor<Void> {
         }
 
         // Check that main is present and ok
-        FunType mainType = symTab.lookupMain();
-        if (mainType == null)
-            throw new SemanticException("Missing main function");
+        FunType mainType = symTab.lookupFun(new CommonToken(NotCParser.ID, "main"));
         if (mainType.arity() != 0)
             throw new SemanticException("Non-empty parameter list in function main");
         SrcType mainReturn = mainType.returnType();
