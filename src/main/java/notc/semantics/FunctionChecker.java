@@ -1,16 +1,17 @@
-package notc.analysis;
+package notc.semantics;
 
-import notc.analysis.NotCParser.SrcType;
-import notc.analysis.NotCParser.DefContext;
-import notc.analysis.NotCParser.ExpContext;
-import notc.analysis.NotCParser.StmContext;
-import notc.analysis.NotCParser.DeclStmContext;
-import notc.analysis.NotCParser.ExpStmContext;
-import notc.analysis.NotCParser.IfElseStmContext;
-import notc.analysis.NotCParser.WhileStmContext;
-import notc.analysis.NotCParser.BlockStmContext;
-import notc.analysis.NotCParser.ReturnStmContext;
-import notc.analysis.NotCParser.InitStmContext;
+import notc.antlrgen.NotCBaseVisitor;
+import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.DefContext;
+import notc.antlrgen.NotCParser.ExpContext;
+import notc.antlrgen.NotCParser.StmContext;
+import notc.antlrgen.NotCParser.DeclStmContext;
+import notc.antlrgen.NotCParser.ExpStmContext;
+import notc.antlrgen.NotCParser.IfElseStmContext;
+import notc.antlrgen.NotCParser.WhileStmContext;
+import notc.antlrgen.NotCParser.BlockStmContext;
+import notc.antlrgen.NotCParser.ReturnStmContext;
+import notc.antlrgen.NotCParser.InitStmContext;
 
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.TerminalNode;

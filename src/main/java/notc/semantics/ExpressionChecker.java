@@ -1,31 +1,33 @@
-package notc.analysis;
+package notc.semantics;
 
-import notc.analysis.NotCParser.SrcType;
-import notc.analysis.NotCParser.ExpContext;
-import notc.analysis.NotCParser.FalseLitExpContext;
-import notc.analysis.NotCParser.TrueLitExpContext;
-import notc.analysis.NotCParser.DoubleLitExpContext;
-import notc.analysis.NotCParser.IntLitExpContext;
-import notc.analysis.NotCParser.StringLitExpContext;
-import notc.analysis.NotCParser.VarExpContext;
-import notc.analysis.NotCParser.FunCallExpContext;
-import notc.analysis.NotCParser.AssExpContext;
-import notc.analysis.NotCParser.MulExpContext;
-import notc.analysis.NotCParser.DivExpContext;
-import notc.analysis.NotCParser.AddExpContext;
-import notc.analysis.NotCParser.SubExpContext;
-import notc.analysis.NotCParser.PostIncrExpContext;
-import notc.analysis.NotCParser.PostDecrExpContext;
-import notc.analysis.NotCParser.PreIncrExpContext;
-import notc.analysis.NotCParser.PreDecrExpContext;
-import notc.analysis.NotCParser.LtExpContext;
-import notc.analysis.NotCParser.GtExpContext;
-import notc.analysis.NotCParser.GEqExpContext;
-import notc.analysis.NotCParser.LEqExpContext;
-import notc.analysis.NotCParser.EqExpContext;
-import notc.analysis.NotCParser.NEqExpContext;
-import notc.analysis.NotCParser.AndExpContext;
-import notc.analysis.NotCParser.OrExpContext;
+import notc.antlrgen.NotCBaseVisitor;
+import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.ExpContext;
+import notc.antlrgen.NotCParser.FalseLitExpContext;
+import notc.antlrgen.NotCParser.TrueLitExpContext;
+import notc.antlrgen.NotCParser.DoubleLitExpContext;
+import notc.antlrgen.NotCParser.IntLitExpContext;
+import notc.antlrgen.NotCParser.StringLitExpContext;
+import notc.antlrgen.NotCParser.VarExpContext;
+import notc.antlrgen.NotCParser.FunCallExpContext;
+import notc.antlrgen.NotCParser.AssExpContext;
+import notc.antlrgen.NotCParser.MulExpContext;
+import notc.antlrgen.NotCParser.DivExpContext;
+import notc.antlrgen.NotCParser.AddExpContext;
+import notc.antlrgen.NotCParser.SubExpContext;
+import notc.antlrgen.NotCParser.PostIncrExpContext;
+import notc.antlrgen.NotCParser.PostDecrExpContext;
+import notc.antlrgen.NotCParser.PreIncrExpContext;
+import notc.antlrgen.NotCParser.PreDecrExpContext;
+import notc.antlrgen.NotCParser.LtExpContext;
+import notc.antlrgen.NotCParser.GtExpContext;
+import notc.antlrgen.NotCParser.GEqExpContext;
+import notc.antlrgen.NotCParser.LEqExpContext;
+import notc.antlrgen.NotCParser.EqExpContext;
+import notc.antlrgen.NotCParser.NEqExpContext;
+import notc.antlrgen.NotCParser.AndExpContext;
+import notc.antlrgen.NotCParser.OrExpContext;
+import notc.antlrgen.NotCParser.ParenthesizedExpContext;
 
 import org.antlr.v4.runtime.Token;
 
@@ -293,6 +295,13 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         checkBoolean(orExp.opnd1, orExp.opnd2);
         orExp.typeAnnot = SrcType.BOOL;
         return SrcType.BOOL;
+    }
+
+    @Override
+    public SrcType visitParenthesizedExp(ParenthesizedExpContext paren) {
+        SrcType t = paren.expr.accept(this);
+        paren.typeAnnot = t;
+        return t;
     }
 
 }

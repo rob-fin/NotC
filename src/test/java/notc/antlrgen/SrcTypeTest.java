@@ -1,12 +1,12 @@
-package notc.analysis;
+package notc.antlrgen;
 
-import notc.analysis.NotCParser.SrcType;
-import notc.analysis.NotCParser.TypeContext;
-import notc.analysis.NotCParser.BoolTypeContext;
-import notc.analysis.NotCParser.DoubleTypeContext;
-import notc.analysis.NotCParser.IntTypeContext;
-import notc.analysis.NotCParser.StringTypeContext;
-import notc.analysis.NotCParser.VoidTypeContext;
+import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.TypeContext;
+import notc.antlrgen.NotCParser.BoolTypeContext;
+import notc.antlrgen.NotCParser.DoubleTypeContext;
+import notc.antlrgen.NotCParser.IntTypeContext;
+import notc.antlrgen.NotCParser.StringTypeContext;
+import notc.antlrgen.NotCParser.VoidTypeContext;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,6 +14,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+// Class SrcType (defined in src/main/antlr/NotC.g4) represents the different
+// types in the language and is injected alongside the ANTLR-generated abstract
+// syntax classes to make dealing with types in the compiler components easier.
+// Unit tests of its utilities are defined below.
 class SrcTypeTest {
 
     TypeContext typeCtx;

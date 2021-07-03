@@ -1,6 +1,6 @@
-package notc.analysis;
+package notc.semantics;
 
-import notc.analysis.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.SrcType;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;

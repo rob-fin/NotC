@@ -1,8 +1,10 @@
-package notc.analysis;
+package notc.semantics;
 
-import notc.analysis.NotCParser.SrcType;
-import notc.analysis.NotCParser.ProgramContext;
-import notc.analysis.NotCParser.DefContext;
+import notc.antlrgen.NotCBaseVisitor;
+import notc.antlrgen.NotCParser;
+import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.ProgramContext;
+import notc.antlrgen.NotCParser.DefContext;
 
 import org.antlr.v4.runtime.CommonToken;
 import com.google.common.collect.Lists;

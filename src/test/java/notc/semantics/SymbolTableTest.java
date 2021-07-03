@@ -1,6 +1,7 @@
-package notc.analysis;
+package notc.semantics;
 
-import notc.analysis.NotCParser.SrcType;
+import notc.antlrgen.NotCParser;
+import notc.antlrgen.NotCParser.SrcType;
 
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.CommonToken;

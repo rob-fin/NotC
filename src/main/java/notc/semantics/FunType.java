@@ -1,6 +1,6 @@
-package notc.analysis;
+package notc.semantics;
 
-import notc.analysis.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.SrcType;
 
 import java.util.List;
 import java.util.Collections;

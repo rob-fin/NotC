@@ -1,4 +1,4 @@
-package notc.analysis;
+package notc.semantics;
 
 import org.antlr.v4.runtime.Token;
 
