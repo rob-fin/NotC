@@ -17,6 +17,7 @@ import com.google.common.io.Files;
 
 import java.io.PrintWriter;
 import java.io.IOException;
+import java.io.FileNotFoundException;
 
 public class Compiler {
 
@@ -31,10 +32,10 @@ public class Compiler {
     }
 
     private static int compile(String srcFile) {
+        ParseTree tree;
+        NotCParser parser;
 
-        String outFile = Files.getNameWithoutExtension(srcFile) + ".output_placeholder";
-
-        try (PrintWriter out = new PrintWriter(outFile)) {
+        try {
             CharStream input = CharStreams.fromFileName(srcFile);
             BailingErrorListener listener = new BailingErrorListener();
 
@@ -45,18 +46,13 @@ public class Compiler {
             CommonTokenStream tokens = new CommonTokenStream(lexer);
 
             // Parse
-            NotCParser parser = new NotCParser(tokens);
+            parser = new NotCParser(tokens);
             parser.removeErrorListeners();
             parser.addErrorListener(listener);
-            ParseTree tree = parser.program();
+            tree = parser.program();
 
-            // Type check
+            // Perform semantic checks
             tree.accept(new ProgramChecker());
-
-            // TODO: Generate Java bytecode
-            // Output abstract syntax tree for now...
-            out.print(tree.toStringTree(parser));
-
         } catch (ParseCancellationException e) {
             System.err.println("Syntax error" + System.lineSeparator() + e.getMessage());
             return 1;
@@ -69,6 +65,21 @@ public class Compiler {
             return 1;
         }
 
+        // Program is valid: Generate Java assembly
+        String jasmText;
+        String jasmFile = Files.getNameWithoutExtension(srcFile) + ".jasm";
+        try (PrintWriter jasmWriter = new PrintWriter(jasmFile)) {
+            // jasmText = tree.accept(new ProgramGenerator());
+            // jasmWriter.print(jasmText);
+            // Output abstract syntax tree for now...
+            jasmWriter.print(tree.toStringTree(parser));
+        } catch (FileNotFoundException e) {
+            System.err.println("Could not create " + jasmFile);
+            e.printStackTrace();
+            return 1;
+        }
+
+        // TODO: Assemble .class file
         return 0;
     }
 
