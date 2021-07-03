@@ -1,5 +1,7 @@
 package notc.analysis;
 
+import notc.analysis.NotCParser.SrcType;
+
 import java.util.List;
 import java.util.Collections;
 

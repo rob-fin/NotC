@@ -1,5 +1,84 @@
 grammar NotC;
 
+/* Type patch */
+
+@parser::members {
+    // Enum representing the different types in the language. Instances of
+    // ANTLR-generated abstract syntax classes are a bit awkward to compare to
+    // each other, so this is injected among them and used instead of TypeContexts.
+    public enum SrcType {
+        BOOL,
+        STRING,
+        VOID,
+        INT,
+        DOUBLE;
+
+        public boolean isBool() {
+            return compareTo(BOOL) == 0;
+        }
+
+        public boolean isString() {
+            return compareTo(STRING) == 0;
+        }
+
+        public boolean isVoid() {
+            return compareTo(VOID) == 0;
+        }
+
+        public boolean isInt() {
+            return compareTo(INT) == 0;
+        }
+
+        public boolean isDouble() {
+            return compareTo(DOUBLE) == 0;
+        }
+
+        public boolean isNumerical() {
+            return compareTo(INT) >= 0;
+        }
+
+        /* Resolve abstract syntax types to instances of
+        * this enum at run-time using an utility visitor */
+        public static SrcType resolve(TypeContext ctx) {
+            return ctx.accept(resolver);
+        }
+
+        private static TypeVisitor resolver = new TypeVisitor();
+
+        static class TypeVisitor extends NotCBaseVisitor<SrcType> {
+
+            @Override
+            public SrcType visitBoolType(BoolTypeContext ctx) {
+                return BOOL;
+            }
+
+            @Override
+            public SrcType visitDoubleType(DoubleTypeContext ctx) {
+                return DOUBLE;
+            }
+
+            @Override
+            public SrcType visitIntType(IntTypeContext ctx) {
+                return INT;
+            }
+
+            @Override
+            public SrcType visitStringType(StringTypeContext ctx) {
+                return STRING;
+            }
+
+            @Override
+            public SrcType visitVoidType(VoidTypeContext ctx) {
+                return VOID;
+            }
+
+        }
+    }
+}
+
+
+/* Grammar start */
+
 // Program: list of function definitions
 program
     : def* EOF

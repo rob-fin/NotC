@@ -1,5 +1,6 @@
 package notc.analysis;
 
+import notc.analysis.NotCParser.SrcType;
 import notc.analysis.NotCParser.TypeContext;
 import notc.analysis.NotCParser.BoolTypeContext;
 import notc.analysis.NotCParser.DoubleTypeContext;

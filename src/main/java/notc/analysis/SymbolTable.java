@@ -1,5 +1,7 @@
 package notc.analysis;
 
+import notc.analysis.NotCParser.SrcType;
+
 import org.antlr.v4.runtime.Token;
 
 import java.util.Collections;
