@@ -31,13 +31,13 @@ test {
     useJUnitPlatform()
     dependsOn(cleanTest)
     testLogging {
-        events "STANDARD_ERROR", "STANDARD_OUT"
+        events "STANDARD_OUT"
     }
 }
 
 jar {
     manifest {
-        attributes 'Main-Class': 'notc.Compiler'
+        attributes 'Main-Class': 'notc.Main'
     }
     from {
         configurations.runtimeClasspath.collect {

@@ -17,25 +17,27 @@ import com.github.stefanbirkner.systemlambda.SystemLambda;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.OutputStream;
+import java.io.BufferedWriter;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-/* The compiler is run with a lot of test program source files: ones that should compile, ones that
- * should be rejected by the parser, and ones that should be rejected during semantic analysis.
- * The class expects that files in these test categories reside on the classpath in directories
- * named "valid_programs", "syntax_errors", and "semantic_errors". Syntax errors rejected during
- * semantic analysis and semantic errors rejected by the parser are considered failed tests.
- * The successfully compiled programs are then executed and their outputs checked. */
+// The compiler is run with a lot of test program source files: ones that should compile, ones that
+// should be rejected by the parser, and ones that should be rejected during semantic analysis.
+// The class expects that files in these test categories reside on the classpath in directories
+// named "valid_programs", "syntax_errors", and "semantic_errors". Syntax errors rejected during
+// semantic analysis and semantic errors rejected by the parser are considered failed tests.
+// The successfully compiled programs are then executed and their outputs checked.
 class ProgramsTest {
 
     private ClassLoader classLoader = getClass().getClassLoader();
 
-    /* Iterate over the source files in the test directories and run the compiler with them.
-     * For each file run, capture the compiler's System.err output and check it
-     * against the expected output for the category to which the file belongs. */
+    // Iterate over the source files in the test directories and run the compiler with them.
+    // For each file run, capture the compiler's System.err output and check it
+    // against the expected output for the category to which the file belongs.
     @Test
     @Order(1)
     void compilePrograms() throws Exception { // Exception from SystemLambda
@@ -56,18 +58,18 @@ class ProgramsTest {
 
             for (File sourceFile : FileUtils.listFiles(testDir, notcFilter, null)) {
                 String filePath = sourceFile.getAbsolutePath();
-                /* Instead of launching a new process (and JVM) for every file:
-                 * Call main method and prevent JVM from terminating. */
+                // Instead of launching a new process (and JVM) for every file:
+                // Call main method and prevent JVM from terminating.
                 String sysErr = SystemLambda.tapSystemErr( () -> {
                     SystemLambda.catchSystemExit( () -> {
-                        Compiler.main(new String[]{filePath});
+                        Main.main(new String[]{"-o", categoryPath, filePath});
                     });
                 });
-                assertTrue(assertor.apply(sysErr),
-                           String.join(System.lineSeparator(),
-                                       List.of(sourceFile.getName() + " in " + testCategory + ":",
-                                               FileUtils.readFileToString(sourceFile, UTF_8),
-                                               "Compiler's System.err: " + sysErr)));
+                assertTrue(assertor.apply(sysErr), sourceFile.getName() + " in " + testCategory + ":" +
+                                                   System.lineSeparator() +
+                                                   FileUtils.readFileToString(sourceFile, UTF_8) +
+                                                   System.lineSeparator() +
+                                                   "Compiler's System.err: " + sysErr);
             }
         }
     }
@@ -91,8 +93,10 @@ class ProgramsTest {
             File testInput = new File(validsPath + File.separator + className + ".input");
             if (testInput.exists()) {
                 String input = FileUtils.readFileToString(testInput, UTF_8);
-                OutputStreamWriter inputWriter = new OutputStreamWriter(proc.getOutputStream(), UTF_8);
-                inputWriter.write(input);
+                OutputStream stdin = proc.getOutputStream();
+                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stdin));
+                writer.write(input);
+                writer.flush();
             }
 
             int actualExit = proc.waitFor();
@@ -111,7 +115,6 @@ class ProgramsTest {
                 .usingElementComparator(outputComparator)
                 .isEqualTo(expectedOutput);
         }
-
     }
 
     Comparator<String> outputComparator = new Comparator<>() {
