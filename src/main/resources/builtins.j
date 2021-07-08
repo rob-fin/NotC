@@ -1,29 +1,9 @@
-.class public $_CLASSNAME_$
-.super java/lang/Object
-
-.method public <init>()V
-    .limit locals 1
-
-    aload_0
-    invokespecial java/lang/Object/<init>()V
-    return
-
-.end method
-
-; Entry point calls the generated main()I and exits
-.method public static main([Ljava/lang/String;)V
-    .limit locals 1
-    .limit stack  1
-
-    invokestatic $_CLASSNAME_$/main()V
-    pop
-    return
-
-.end method
+; Jasmin assembly implementation of the built-in functions of the language.
+; Intended to be loaded by the code generator and injected into its output,
+; so that the built-in functions simply are methods of the generated class.
 
 
-; Built-in functions are simply defined in the same class
-
+; Prints an integer.
 .method public static printInt(I)V
     .limit locals 1
     .limit stack 2
@@ -36,9 +16,10 @@
 .end method
 
 
+; Prints a floating-point value.
 .method public static printDouble(D)V
     .limit locals 2
-    .limit stack 4
+    .limit stack 3
 
     getstatic java/lang/System.out Ljava/io/PrintStream;
     dload_0
@@ -48,6 +29,7 @@
 .end method
 
 
+; Prints a text string.
 .method public static printString(Ljava/lang/String;)V
     .limit locals 1
     .limit stack 2
@@ -60,39 +42,55 @@
 .end method
 
 
+; Reads from the console until an integer can be parsed.
 .method public static readInt()I
-    .limit locals 1
+    .limit locals 0
     .limit stack 1
+    .catch java/lang/Exception from TRY to CATCH using CATCH
 
+TRY:
     invokestatic java/lang/System.console()Ljava/io/Console;
     invokevirtual java/io/Console.readLine()Ljava/lang/String;
     invokestatic java/lang/Integer.parseInt(Ljava/lang/String;)I
     ireturn
+CATCH:
+    pop
+    goto TRY
 
 .end method
 
 
+; Reads from the console until a double can be parsed.
 .method public static readDouble()D
-    .limit locals 1
+    .limit locals 0
     .limit stack 2
+    .catch java/lang/Exception from TRY to CATCH using CATCH
 
+TRY:
     invokestatic java/lang/System.console()Ljava/io/Console;
     invokevirtual java/io/Console.readLine()Ljava/lang/String;
     invokestatic java/lang/Double.parseDouble(Ljava/lang/String;)D
     dreturn
+CATCH:
+    pop
+    goto TRY
 
 .end method
 
 
+; Reads a text string from the console.
+; In case null is read (e.g. from EOF), the empty string is put on the stack instead.
 .method public static readString()Ljava/lang/String;
-    .limit locals 1
-    .limit stack 1
+    .limit locals 0
+    .limit stack 2
 
     invokestatic java/lang/System.console()Ljava/io/Console;
     invokevirtual java/io/Console.readLine()Ljava/lang/String;
+    dup
+    ifnonnull END
+    pop
+    ldc ""
+END:
     areturn
 
 .end method
-
-
-; Generated functions follow
