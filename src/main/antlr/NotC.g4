@@ -37,8 +37,8 @@ grammar NotC;
             return compareTo(INT) >= 0;
         }
 
-        /* Resolve abstract syntax types to instances of
-        * this enum at run-time using an utility visitor */
+        // Resolves abstract syntax types to instances of
+        // this enum at runtime using a utility visitor
         public static SrcType resolve(TypeContext ctx) {
             return ctx.accept(resolver);
         }
@@ -49,26 +49,31 @@ grammar NotC;
 
             @Override
             public SrcType visitBoolType(BoolTypeContext ctx) {
+                ctx.srcType = BOOL;
                 return BOOL;
             }
 
             @Override
             public SrcType visitDoubleType(DoubleTypeContext ctx) {
+                ctx.srcType = DOUBLE;
                 return DOUBLE;
             }
 
             @Override
             public SrcType visitIntType(IntTypeContext ctx) {
+                ctx.srcType = INT;
                 return INT;
             }
 
             @Override
             public SrcType visitStringType(StringTypeContext ctx) {
+                ctx.srcType = STRING;
                 return STRING;
             }
 
             @Override
             public SrcType visitVoidType(VoidTypeContext ctx) {
+                ctx.srcType = VOID;
                 return VOID;
             }
 
@@ -92,8 +97,9 @@ def
 params
     : (type ID (',' type ID)*)? ;
 
-// Built in types
-type
+// Built in types. Adds SrcType annotations to the generated
+// TypeContext classes to make them easier to work with.
+type locals [SrcType srcType]
     : 'bool'                                        # BoolType
     | 'double'                                      # DoubleType
     | 'int'                                         # IntType
@@ -112,8 +118,8 @@ stm
     | 'if' '(' exp ')' stm1=stm 'else' stm2=stm     # IfElseStm
     ;
 
-/* Expressions in order of decreasing precedence.
- * Adds type annotation to each Exp class in the abstract syntax. */
+// Expressions in order of decreasing precedence.
+// Adds type annotation to each Exp class in the abstract syntax.
 exp locals [SrcType typeAnnot]
     : '(' expr=exp ')'                              # ParenthesizedExp
     | 'false'                                       # FalseLitExp
