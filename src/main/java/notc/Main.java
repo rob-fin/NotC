@@ -116,6 +116,10 @@ public class Main {
                 + System.lineSeparator()
                 + "Defaults to working directory of invoking process.")
             .build());
+        options.addOption(Option.builder("j")
+            .longOpt("jasmin")
+            .desc("Also output intermediate Jasmin assembly representation.")
+            .build());
         options.addOption(Option.builder("h")
             .longOpt("help")
             .desc("Print this message and exit.")
@@ -152,6 +156,8 @@ public class Main {
 
         String outputDir = cmd.getOptionValue("o", System.getProperty("user.dir"));
         String jasminText = compile(srcFile, className);
+        if (cmd.hasOption("j"))
+            System.out.println(jasminText);
         assemble(jasminText, outputDir);
         System.exit(0);
     }
