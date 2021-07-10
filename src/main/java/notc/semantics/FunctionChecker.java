@@ -74,10 +74,17 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         return null;
     }
 
-    // Return: "return" exp ";" -> ReturnStm
+    // Return: "return" exp? ";" -> ReturnStm
     @Override
     public Void visitReturnStm(ReturnStmContext ret) {
-        expChecker.expectType(ret.exp(), expectedReturn);
+        if (ret.exp() != null) {
+            expChecker.expectType(ret.exp(), expectedReturn);
+            return null;
+        }
+        if (!expectedReturn.isVoid()) {
+            throw new SemanticException(ret.getStart(),
+                                        "Return statement with value in void-returning function");
+        }
         return null;
     }
 

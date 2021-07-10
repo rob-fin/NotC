@@ -1,0 +1,18 @@
+void main() {
+    int a = 27;
+    string b = "sss";
+    {
+        string b = "ttt";
+        {
+            printInt(a);
+            double a = 3.0;
+            printDouble(a);
+            {
+                printString(b);
+            }
+        }
+        printInt(a);
+
+    }
+    printString(b);
+}

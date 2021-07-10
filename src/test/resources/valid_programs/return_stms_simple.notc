@@ -1,0 +1,18 @@
+void main() {
+}
+
+double d() {
+    return 44.9;
+}
+
+bool b() {
+    return false;
+}
+
+void v() {
+    return;
+}
+
+string s() {
+    return "sscvklh";
+}

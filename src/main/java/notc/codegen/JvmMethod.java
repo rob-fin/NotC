@@ -22,33 +22,38 @@ class JvmMethod {
     private int maxStack = 0;
     private int nextLabel = 0;
 
-    private String JvmSpec;
+    private String JvmSpec; // Part of method header
     private TextStringBuilder body;
     private ArrayDeque<HashMap<String,Integer>> vars;
 
-    JvmMethod(String JvmSpec) {
+    private JvmMethod(String JvmSpec) {
         this.JvmSpec = JvmSpec;
         body = new TextStringBuilder();
         vars = new ArrayDeque<HashMap<String,Integer>>();
     }
 
+    // Instantiates a model of a JVM method from a parse tree rooted at a function
+    // definition, and a specification of its name and signature in JVM format
     static JvmMethod of(DefContext def, String JvmSpec) {
         JvmMethod method = new JvmMethod(JvmSpec);
+        // Add paramters as local variables
         List<SrcType> paramTypes = Lists.transform(def.params().type(),
                                                    tCtx -> tCtx.srcType);
         List<Token> paramIds = Lists.transform(def.params().ID(),
                                                TerminalNode::getSymbol);
         method.pushScope();
-        // Guaranteed by parser to be of same length
         int paramListLen = paramIds.size();
+        // (Guaranteed by parser to be of same length)
         for (int i = 0; i < paramListLen; i++)
             method.addVar(paramIds.get(i), paramTypes.get(i));
         StatementGenerator stmGen = StatementGenerator.withTarget(method);
+        // Generate the statements
         for (StmContext stm : def.stm())
             stm.accept(stmGen);
         return method;
     }
 
+    // After instantiating the class, this can be called to get the generated code
     TextStringBuilder collectCode() {
         TextStringBuilder methodDef = new TextStringBuilder();
         methodDef.appendln(".method public static " + JvmSpec);
@@ -59,16 +64,15 @@ class JvmMethod {
         return methodDef;
     }
 
+    // Adds new label for jump instructions
     String newLabel() {
         return "L" + nextLabel++ + ":";
     }
 
-    void addInstruction(String instruction) {
+    // Add an instruction to the output and update stack accordingly
+    void addInstruction(String instruction, int stackChange) {
         body.appendln(instruction);
-    }
-
-    void changeStackSize(int change)  {
-        currentStack += change;
+        currentStack += stackChange;
         maxStack = Math.max(maxStack, currentStack);
     }
 
@@ -85,9 +89,9 @@ class JvmMethod {
     // Local variables. This is effectively symbol table functionality.
 
     // Double is the only type that takes up two "slots" on the stack
-    void addVar(Token idTok, SrcType t) {
-        nextVarAddr += t.isDouble() ? 2 : 1;
+    void addVar(Token idTok, SrcType t) { System.out.println("hejj");
         vars.peekFirst().put(idTok.getText(), nextVarAddr);
+        nextVarAddr += t.isDouble() ? 2 : 1;
     }
 
     // Start looking in outermost scope and return when a match is found

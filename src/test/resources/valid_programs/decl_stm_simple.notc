@@ -1,0 +1,6 @@
+void main() {
+    int i, j, k, l;
+    double d, e, f, g;
+    bool a, b, c;
+    string s, t, u ,v;
+}

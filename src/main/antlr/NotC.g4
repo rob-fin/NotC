@@ -112,7 +112,7 @@ stm
     : type ID '=' exp ';'                           # InitStm
     | type ID (',' ID)* ';'                         # DeclStm
     | exp ';'                                       # ExpStm
-    | 'return' exp ';'                              # ReturnStm
+    | 'return' exp? ';'                             # ReturnStm
     | '{' stm* '}'                                  # BlockStm
     | 'while' '(' exp ')' stm                       # WhileStm
     | 'if' '(' exp ')' stm1=stm 'else' stm2=stm     # IfElseStm
