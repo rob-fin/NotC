@@ -1,0 +1,4 @@
+string readString() {}
+
+void main() {
+}

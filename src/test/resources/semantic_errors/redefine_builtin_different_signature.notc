@@ -1,0 +1,6 @@
+// Overloading not supported
+
+int readInt(bool b) {}
+
+void main() {
+}
