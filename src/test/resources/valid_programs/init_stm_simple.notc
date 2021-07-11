@@ -1,0 +1,6 @@
+void main() {
+    int i = 0;
+    double d = 2.0;
+    string s = "rgfdls";
+    bool b = true;
+}

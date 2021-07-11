@@ -59,4 +59,17 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return null;
     }
 
+    // Variable expression: look up its address and load it
+    @Override
+    public Void visitVarExp(VarExpContext varExp) {
+        int varAddr = targetMethod.lookupVar(varExp.varId);
+        if (varExp.typeAnnot.isDouble())
+            targetMethod.addInstruction("   dload " + varAddr, 2);
+        else if (varExp.typeAnnot.isString())
+            targetMethod.addInstruction("   aload " + varAddr, 1);
+        else
+            targetMethod.addInstruction("   iload " + varAddr, 1);
+        return null;
+    }
+
 }

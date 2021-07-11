@@ -44,6 +44,44 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
     }
 
     @Override
+    public Void visitInitStm(InitStmContext init) {
+        Token varIdTok = init.ID().getSymbol();
+        SrcType varType = init.type().srcType;
+        targetMethod.addVar(varIdTok, varType);
+        expGen.visit(init.exp());
+        String storeInstr;
+        int stackChange;
+        if (varType.isDouble()) {
+            storeInstr = "dstore ";
+            stackChange = -2;
+        } else if (varType.isString()) {
+            storeInstr = "astore ";
+            stackChange = -1;
+        } else { // ints, bools
+            storeInstr = "istore ";
+            stackChange = -1;
+        }
+        int varAddr = targetMethod.lookupVar(varIdTok);
+        targetMethod.addInstruction(storeInstr + varAddr, stackChange);
+        return null;
+    }
+
+    // Expression used as statement
+    @Override
+    public Void visitExpStm(ExpStmContext es) {
+        expGen.visit(es.exp()); // Generate it
+        SrcType expStmType = es.exp().typeAnnot;
+        // Value is not used and should be popped
+        if (expStmType.isVoid())
+            return null; // Leaves nothing on the stack anyway
+        else if (expStmType.isDouble())
+            targetMethod.addInstruction("   pop2", -2);
+        else // ints, bools, strings
+            targetMethod.addInstruction("   pop", -1);
+        return null;
+    }
+
+    @Override
     public Void visitReturnStm(ReturnStmContext ret) {
         if (ret.exp() == null) { // void return
             targetMethod.addInstruction("   return", 0);

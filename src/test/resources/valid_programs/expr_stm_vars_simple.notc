@@ -1,0 +1,10 @@
+void main() {
+    int i = 32;
+    i;
+    double d = 2.0;
+    d;
+    bool b = true;
+    b;
+    string s = "dksf";
+    s;
+}
