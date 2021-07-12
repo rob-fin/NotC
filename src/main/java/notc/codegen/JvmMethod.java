@@ -32,9 +32,10 @@ class JvmMethod {
         vars = new ArrayDeque<HashMap<String,Integer>>();
     }
 
-    // Instantiates a model of a JVM method from a parse tree rooted at a function
-    // definition, and a specification of its name and signature in JVM format
-    static JvmMethod of(DefContext def, String JvmSpec) {
+    // Instantiates a model of a JVM method from:
+    //  * A parse tree rooted at a function definition and
+    //  * A specification of its name and signature in JVM format
+    static JvmMethod from(DefContext def, String JvmSpec) {
         JvmMethod method = new JvmMethod(JvmSpec);
         // Add paramters as local variables
         List<SrcType> paramTypes = Lists.transform(def.params().type(),
@@ -64,7 +65,7 @@ class JvmMethod {
         return methodDef;
     }
 
-    // Adds new label for jump instructions
+    // Get a new label for jump instructions
     String newLabel() {
         return "L" + nextLabel++ + ":";
     }
@@ -89,7 +90,7 @@ class JvmMethod {
     // Local variables. This is effectively symbol table functionality.
 
     // Double is the only type that takes up two "slots" on the stack
-    void addVar(Token idTok, SrcType t) { System.out.println("hejj");
+    void addVar(Token idTok, SrcType t) {
         vars.peekFirst().put(idTok.getText(), nextVarAddr);
         nextVarAddr += t.isDouble() ? 2 : 1;
     }

@@ -28,30 +28,19 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
     @Override
     public String visitProgram(ProgramContext prog) {
         TextStringBuilder finalOutput = new TextStringBuilder();
-        // Boilerplate
-        finalOutput.appendln(".class public " + className);
-        finalOutput.appendln(".super java/lang/Object");
-        // The JVM entry point main calls the generated main
-        finalOutput.appendln(".method public static main([Ljava/lang/String;)V");
-        finalOutput.appendln("  .limit locals 1");
-        finalOutput.appendln("  .limit stack 1");
-        finalOutput.appendln("  invokestatic " + className + "/main()I");
-        finalOutput.appendln("  pop");
-        finalOutput.appendln("  return");
-        finalOutput.appendln(".end method");
 
-        // Load resource containing the language's built-in functions implemented
-        // as methods in Jasmin assembly. They become part of the class.
+        // Load resource containing the language's built-in functions
+        // implemented as methods in Jasmin assembly. They become part of the class.
+        // Also contains JVM entry point main, which calls the generated main.
         ClassLoader classLoader = getClass().getClassLoader();
-        String jasmBoilerplate;
-        try (InputStream is = classLoader.getResourceAsStream("builtins.j")) {
-            String builtins = IOUtils.toString(is, StandardCharsets.UTF_8);
-            finalOutput.appendln(builtins);
+        try (InputStream is = classLoader.getResourceAsStream("boilerplate.j")) {
+            String boilerplate = IOUtils.toString(is, StandardCharsets.UTF_8);
+            finalOutput.append(StringUtils.replace(boilerplate, "$CLASSNAME$", className));
         } catch (IOException e) {
             throw new RuntimeException("No intention to handle", e);
         }
 
-        // Put them in a symbol table: id -> fully qualified JVM specification
+        // Put built-ins in a symbol table: id -> fully qualified JVM specification
         Map<String,String> methodSymTab = new HashMap<>();
         methodSymTab.put("printInt",    className + "/printInt(I)V");
         methodSymTab.put("readInt",     className + "/readInt()I");
@@ -82,7 +71,7 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         // Generate JVM methods from the function definitions of the program
         for (DefContext def : prog.def()) {
             String spec = JvmSpecs.get(def);
-            JvmMethod method = JvmMethod.of(def, spec);
+            JvmMethod method = JvmMethod.from(def, spec);
             TextStringBuilder methodOutput = method.collectCode();
             finalOutput.append(methodOutput);
         }
