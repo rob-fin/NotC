@@ -1,0 +1,7 @@
+void main() {
+    if (true)
+        printInt(1);
+
+    if (false)
+        printInt(0);
+}

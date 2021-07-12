@@ -7,6 +7,7 @@ import notc.antlrgen.NotCParser.ExpContext;
 import notc.antlrgen.NotCParser.StmContext;
 import notc.antlrgen.NotCParser.DeclStmContext;
 import notc.antlrgen.NotCParser.ExpStmContext;
+import notc.antlrgen.NotCParser.IfStmContext;
 import notc.antlrgen.NotCParser.IfElseStmContext;
 import notc.antlrgen.NotCParser.WhileStmContext;
 import notc.antlrgen.NotCParser.BlockStmContext;
@@ -104,6 +105,16 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         expChecker.expectType(wh.exp(), SrcType.BOOL);
         symTab.pushScope();
         visit(wh.stm());
+        symTab.popScope();
+        return null;
+    }
+
+    // if: "if" "(" exp ")" stm -> IfStm
+    @Override
+    public Void visitIfStm(IfStmContext _if) {
+        expChecker.expectType(_if.exp(), SrcType.BOOL);
+        symTab.pushScope();
+        visit(_if.stm1);
         symTab.popScope();
         return null;
     }

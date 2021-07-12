@@ -115,6 +115,7 @@ stm
     | 'return' exp? ';'                             # ReturnStm
     | '{' stm* '}'                                  # BlockStm
     | 'while' '(' exp ')' stm                       # WhileStm
+    | 'if' '(' exp ')' stm1=stm 'else'              # IfStm
     | 'if' '(' exp ')' stm1=stm 'else' stm2=stm     # IfElseStm
     ;
 
@@ -154,11 +155,9 @@ ID
     : LETTER (LETTER | DIGIT | '_')*
     ;
 
-DOUBLE_LIT : DIGIT+ '.' DIGIT+
-       | '.' DIGIT+
-       ;
+DOUBLE_LIT : '-'? (DIGIT+ '.' DIGIT+ | '.' DIGIT+) ;
 
-INT_LIT : DIGIT+ ;
+INT_LIT : '-'? DIGIT+ ;
 
 DIGIT : [0-9] ;
 

@@ -5,6 +5,7 @@ import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.StmContext;
 import notc.antlrgen.NotCParser.DeclStmContext;
 import notc.antlrgen.NotCParser.ExpStmContext;
+import notc.antlrgen.NotCParser.IfStmContext;
 import notc.antlrgen.NotCParser.IfElseStmContext;
 import notc.antlrgen.NotCParser.WhileStmContext;
 import notc.antlrgen.NotCParser.BlockStmContext;
@@ -106,4 +107,20 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         targetMethod.popScope();
         return null;
     }
+
+    @Override
+    public Void visitIfStm(IfStmContext _if) {
+        String trueLabel = targetMethod.newLabel();
+        String endLabel = targetMethod.newLabel();
+        expGen.visit(_if.exp());
+        targetMethod.addInstruction("    ifne " + trueLabel, -1);
+        targetMethod.addInstruction("    goto " + endLabel, 0);
+        targetMethod.addInstruction(trueLabel + ":", 0);
+        targetMethod.pushScope();
+        visit(_if.stm1);
+        targetMethod.popScope();
+        targetMethod.addInstruction(endLabel + ":", 0);
+        return null;
+    }
+
 }

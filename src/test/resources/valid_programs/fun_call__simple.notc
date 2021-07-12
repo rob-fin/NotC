@@ -1,0 +1,26 @@
+// No output, just checks that the argument and
+// return value stacks pass bytecode verification
+
+
+int fun1(string s, int i) {
+    return 1;
+}
+
+double fun2(bool a, bool b, bool c, bool d) {
+    return 1.0;
+}
+
+bool fun3(double d, string s, int i, double e, bool b, bool c) {
+    return true;
+}
+
+string fun4(double a, double b, double c, double d, string s) {
+    return "";
+}
+
+void main() {
+    fun1("stf", 334);
+    fun2(true, true, false, true);
+    fun3(-2.4, "sggfd", 43425, -53.636, false, false);
+    fun4(.1, .2, .3, -.4, "str");
+}

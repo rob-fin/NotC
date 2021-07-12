@@ -1,12 +1,15 @@
 package notc.codegen;
 
+import notc.antlrgen.NotCParser.SrcType;
 import notc.antlrgen.NotCBaseVisitor;
+import notc.antlrgen.NotCParser.ExpContext;
 import notc.antlrgen.NotCParser.FalseLitExpContext;
 import notc.antlrgen.NotCParser.TrueLitExpContext;
 import notc.antlrgen.NotCParser.DoubleLitExpContext;
 import notc.antlrgen.NotCParser.IntLitExpContext;
 import notc.antlrgen.NotCParser.StringLitExpContext;
 import notc.antlrgen.NotCParser.VarExpContext;
+import notc.antlrgen.NotCParser.FunCallExpContext;
 
 import java.util.Map;
 
@@ -70,6 +73,35 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         else
             targetMethod.addInstruction("   iload " + varAddr, 1);
         return null;
+    }
+
+    // Function calls
+    @Override
+    public Void visitFunCallExp(FunCallExpContext callExp) {
+        // Put all arguments on stack and calculate their size
+        int argStackSize = 0;
+        for (ExpContext arg : callExp.exp()) {
+            visit(arg);
+            if (arg.typeAnnot.isDouble())
+                argStackSize += 2;
+            else
+                argStackSize += 1; // int or bool arg
+        }
+
+        // Return value is left on stack, so calculate its size
+        SrcType returnType = callExp.typeAnnot;
+        int returnStackSize = 0;
+        if (returnType.isDouble())
+            returnStackSize = 2;
+        else if (!returnType.isVoid()) // int, bool, string
+            returnStackSize = 1;
+
+        String invocation = "   invokestatic " + methodSymTab.get(callExp.funId.getText());
+        // Arguments are popped, return value is pushed
+        targetMethod.addInstruction(invocation, returnStackSize - argStackSize);
+
+        return null;
+
     }
 
 }
