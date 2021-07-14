@@ -123,4 +123,19 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         return null;
     }
 
+    @Override
+    public Void visitWhileStm(WhileStmContext wh) {
+        String testLabel = targetMethod.newLabel();
+        String endLabel = targetMethod.newLabel();
+        targetMethod.addInstruction(testLabel + ":", 0);
+        expGen.visit(wh.exp());
+        targetMethod.addInstruction("   ifeq " + endLabel, -1); // if tos is 0
+        targetMethod.pushScope();
+        visit(wh.stm());
+        targetMethod.popScope();
+        targetMethod.addInstruction("   goto " + testLabel, 0);
+        targetMethod.addInstruction(endLabel + ":", 0);
+        return null;
+    }
+
 }

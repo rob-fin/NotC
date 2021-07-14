@@ -1,0 +1,8 @@
+void main() {
+    int i = 98287;
+    double d = 832.0;
+    string s = "mmgr";
+    printInt(i);
+    printDouble(d);
+    printString(s);
+}

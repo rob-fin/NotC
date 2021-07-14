@@ -1,0 +1,6 @@
+// No output, just checks if the simplest generated while statement is valid
+
+void main() {
+    while (false) {
+    }
+}

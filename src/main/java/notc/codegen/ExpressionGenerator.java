@@ -10,7 +10,7 @@ import notc.antlrgen.NotCParser.IntLitExpContext;
 import notc.antlrgen.NotCParser.StringLitExpContext;
 import notc.antlrgen.NotCParser.VarExpContext;
 import notc.antlrgen.NotCParser.FunCallExpContext;
-
+import notc.antlrgen.NotCParser.AssExpContext;
 import java.util.Map;
 
 class ExpressionGenerator extends NotCBaseVisitor<Void> {
@@ -102,6 +102,34 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
 
         return null;
 
+    }
+
+    // Assignments
+    @Override
+    public Void visitAssExp(AssExpContext ass) {
+        ass.exp().accept(this); // Expression on the right of = goes on stack
+        int varAddr = targetMethod.lookupVar(ass.varId);
+        String storeInstr;
+        String dupInstr;
+        int stackSpace;
+        SrcType expType = ass.typeAnnot;
+        if (expType.isDouble()) {
+            storeInstr = "    dstore ";
+            dupInstr = "    dup2";
+            stackSpace = 2;
+        } else if (expType.isString()) {
+            storeInstr = "    astore ";
+            dupInstr = "    dup";
+            stackSpace = 1;
+        } else { // ints, bools
+            storeInstr = "    istore ";
+            dupInstr = "    dup";
+            stackSpace = 1;
+        }
+        // Stored value is value of expression and should be left on stack
+        targetMethod.addInstruction(dupInstr, stackSpace);
+        targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
+        return null;
     }
 
 }

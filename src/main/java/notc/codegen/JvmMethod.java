@@ -67,7 +67,7 @@ class JvmMethod {
 
     // Get a new label for jump instructions
     String newLabel() {
-        return "L" + nextLabel++ + ":";
+        return "L" + nextLabel++;
     }
 
     // Add an instruction to the output and update stack accordingly
