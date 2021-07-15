@@ -145,10 +145,14 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         String trueLabel = targetMethod.newLabel();
         expGen.visit(ie.exp());
         targetMethod.addInstruction("   ifeq " + falseLabel, -1);
+        targetMethod.pushScope();
         visit(ie.stm1);
+        targetMethod.popScope();
         targetMethod.addInstruction("   goto " + trueLabel, 0);
         targetMethod.addInstruction(falseLabel + ":", 0);
+        targetMethod.pushScope();
         visit(ie.stm2);
+        targetMethod.popScope();
         targetMethod.addInstruction(trueLabel + ":", 0);
         return null;
     }
