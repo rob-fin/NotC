@@ -134,10 +134,8 @@ exp locals [SrcType typeAnnot]
     | varId=ID '--'                                 # PostDecrExp
     | '++' varId=ID                                 # PreIncrExp
     | '--' varId=ID                                 # PreDecrExp
-    | opnd1=exp '*'  opnd2=exp                      # MulExp
-    | opnd1=exp '/'  opnd2=exp                      # DivExp
-    | opnd1=exp '+'  opnd2=exp                      # AddExp
-    | opnd1=exp '-'  opnd2=exp                      # SubExp
+    | opnd1=exp op=(MUL | DIV | REM)  opnd2=exp     # MultiplicativeExp
+    | opnd1=exp op=(ADD | SUB)  opnd2=exp           # AdditiveExp
     | opnd1=exp '<'  opnd2=exp                      # LtExp
     | opnd1=exp '>'  opnd2=exp                      # GtExp
     | opnd1=exp '>=' opnd2=exp                      # GEqExp
@@ -149,7 +147,14 @@ exp locals [SrcType typeAnnot]
     | varId=ID  '=' exp                             # AssExp
     ;
 
-// Lexer rules for identifiers, literals, white space, and comments
+
+// Lexer rules for arithmetic operations, identifiers, literals, white space, and comments
+
+MUL : '*' ;
+DIV : '/' ;
+REM : '%' ;
+ADD : '+' ;
+SUB : '-' ;
 
 ID
     : LETTER (LETTER | DIGIT | '_')*

@@ -11,10 +11,8 @@ import notc.antlrgen.NotCParser.StringLitExpContext;
 import notc.antlrgen.NotCParser.VarExpContext;
 import notc.antlrgen.NotCParser.FunCallExpContext;
 import notc.antlrgen.NotCParser.AssExpContext;
-import notc.antlrgen.NotCParser.MulExpContext;
-import notc.antlrgen.NotCParser.DivExpContext;
-import notc.antlrgen.NotCParser.AddExpContext;
-import notc.antlrgen.NotCParser.SubExpContext;
+import notc.antlrgen.NotCParser.MultiplicativeExpContext;
+import notc.antlrgen.NotCParser.AdditiveExpContext;
 import notc.antlrgen.NotCParser.PostIncrExpContext;
 import notc.antlrgen.NotCParser.PostDecrExpContext;
 import notc.antlrgen.NotCParser.PreIncrExpContext;
@@ -33,13 +31,13 @@ import org.antlr.v4.runtime.Token;
 
 import java.util.List;
 
-/* Visitor that type checks expressions.
- * Each visit method infers the type of the expression it was called on
- * and annotates the corresponding parse tree node with it.
- * The inferred type is returned to the caller because the expression
- * may be part of a larger one whose type depends on it.
- * If a type cannot be inferred,
- * a SemanticException is thrown with the offending token and a message. */
+// Visitor that type checks expressions. Each visit method infers the type
+// of the expression it was called on and annotates the corresponding
+// parse tree node with it. The annotations are used by the code generator.
+// The inferred type is returned to the caller because the expression
+// may be part of a larger one whose type depends on it.
+// If a type cannot be inferred,
+// a SemanticException is thrown with the offending token and a message.
 class ExpressionChecker extends NotCBaseVisitor<SrcType> {
     private SymbolTable symTab;
 
@@ -54,11 +52,11 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
             actual.isInt() && expected.isDouble()) // Also acceptable
             return;
         throw new SemanticException(exp.getStart(),
-                                    "Expression of type " +
-                                    actual.name().toLowerCase() +
-                                    " where expression of type " +
-                                    expected.name().toLowerCase() +
-                                    " was expected");
+                                    "Expression of type "
+                                  + actual.name().toLowerCase()
+                                  + " where expression of type "
+                                  + expected.name().toLowerCase()
+                                  + " was expected");
     }
 
     // Literal expressions simply have the type of the literal
@@ -137,35 +135,19 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         return SrcType.INT;
     }
 
-    // exp "*" exp -> MulExp
+    // Check multiplications and divisions
     @Override
-    public SrcType visitMulExp(MulExpContext mulExp) {
-        SrcType t = checkArithmetic(mulExp.opnd1, mulExp.opnd2);
-        mulExp.typeAnnot = t;
+    public SrcType visitMultiplicativeExp(MultiplicativeExpContext multipExp) {
+        SrcType t = checkArithmetic(multipExp.opnd1, multipExp.opnd2);
+        multipExp.typeAnnot = t;
         return t;
     }
 
-    // exp "/" exp -> DivExp
+    // Check additions and subtractions
     @Override
-    public SrcType visitDivExp(DivExpContext divExp) {
-        SrcType t = checkArithmetic(divExp.opnd1, divExp.opnd2);
-        divExp.typeAnnot = t;
-        return t;
-    }
-
-    // exp "+" exp -> AddExp
-    @Override
-    public SrcType visitAddExp(AddExpContext addExp) {
-        SrcType t = checkArithmetic(addExp.opnd1, addExp.opnd2);
-        addExp.typeAnnot = t;
-        return t;
-    }
-
-    // exp "-" exp -> SubExp
-    @Override
-    public SrcType visitSubExp(SubExpContext subExp) {
-        SrcType t = checkArithmetic(subExp.opnd1, subExp.opnd2);
-        subExp.typeAnnot = t;
+    public SrcType visitAdditiveExp(AdditiveExpContext additExp) {
+        SrcType t = checkArithmetic(additExp.opnd1, additExp.opnd2);
+        additExp.typeAnnot = t;
         return t;
     }
 
@@ -175,8 +157,8 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         if (t.isNumerical())
             return t;
         throw new SemanticException(varId,
-                                    "Attempted increment or decrement " +
-                                    "of variable that was not int or double");
+                                    "Attempted increment or decrement "
+                                  + "of variable that was not int or double");
     }
 
     // id "++" -> PostIncrExp
@@ -211,9 +193,9 @@ class ExpressionChecker extends NotCBaseVisitor<SrcType> {
         return t;
     }
 
-    /* Utility function to check comparison expressions.
-     * Type bool is not numerical as in C,
-     * but its values have the relation true > false. */
+    // Utility function to check comparison expressions.
+    // Type bool is not numerical as in C,
+    // but its values have the relation true > false.
     private void checkComparison(ExpContext opnd1, ExpContext opnd2) {
         SrcType t1 = visit(opnd1);
         SrcType t2 = visit(opnd2);
