@@ -11,6 +11,9 @@ import notc.antlrgen.NotCParser.StringLitExpContext;
 import notc.antlrgen.NotCParser.VarExpContext;
 import notc.antlrgen.NotCParser.FunCallExpContext;
 import notc.antlrgen.NotCParser.AssExpContext;
+import notc.antlrgen.NotCParser.MultiplicativeExpContext;
+import notc.antlrgen.NotCParser.AdditiveExpContext;
+
 import java.util.Map;
 
 class ExpressionGenerator extends NotCBaseVisitor<Void> {
@@ -129,6 +132,39 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         // Stored value is value of expression and should be left on stack
         targetMethod.addInstruction(dupInstr, stackSpace);
         targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
+        return null;
+    }
+
+    // Utility to generate +, -, *, /
+    private void generateArithmetic(ExpContext opnd1, ExpContext opnd2,
+                                    SrcType expType, String operation) {
+        // Generate operands
+        opnd1.accept(this);
+        opnd2.accept(this);
+
+        if (expType.isInt()) // stack: i i -> i
+            targetMethod.addInstruction("i" + operation, -1);
+        else // stack: d d -> d
+            targetMethod.addInstruction("d" + operation, -2);
+    }
+
+    @Override
+    public Void visitMultiplicativeExp(MultiplicativeExpContext multipExp) {
+        String operation;
+        if (multipExp.MUL() != null)
+            operation = "mul";
+        else if (multipExp.DIV() != null)
+            operation = "div";
+        else
+            operation = "rem";
+        generateArithmetic(multipExp.opnd1, multipExp.opnd2, multipExp.typeAnnot, operation);
+        return null;
+    }
+
+    @Override
+    public Void visitAdditiveExp(AdditiveExpContext additExp) {
+        String operation = additExp.ADD() == null ? "sub" : "add";
+        generateArithmetic(additExp.opnd1, additExp.opnd2, additExp.typeAnnot, operation);
         return null;
     }
 

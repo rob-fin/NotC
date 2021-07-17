@@ -1,0 +1,6 @@
+void main() {
+    printInt((1 + 2) * 3);
+    printInt(4 * (2 - 2));
+    printInt((24 - 8) / 4);
+    printInt(1 + (0 < 1));
+}

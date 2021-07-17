@@ -1,0 +1,8 @@
+void main() {
+    printInt(1 + 2 * 3);
+    printInt(4 * 4 - 4 * 2);
+    printInt(18 + 9 / 3 + 6);
+    printInt(16 - 10 / 2);
+    printInt(4 + 7 % 5);
+    printInt(25 - 19 % 6);
+}

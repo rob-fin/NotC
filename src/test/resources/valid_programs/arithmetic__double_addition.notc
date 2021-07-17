@@ -1,0 +1,7 @@
+void main() {
+    printDouble(1.5 + 2.25);
+    printDouble(4.125 + 0.0);
+    printDouble(10.0625 + -.0625);
+    printDouble(-100.75 + .25);
+    printDouble(-9876.0 + -4.0);
+}

@@ -1,0 +1,17 @@
+void main() {
+    // 59 = 7 * 8 + 3
+    int q;
+    q = 59 / 7;
+    printInt(q);
+    q = 59 / 8;
+    printInt(q);
+
+    printInt(-81 /  9);
+    printInt( 89 / -9);
+    printInt(-90 / -9);
+
+    printInt(0 / 9254);
+    printInt(9253 / 9254);
+    printInt(9254 / 9254);
+    printInt(9254 / 1);
+}

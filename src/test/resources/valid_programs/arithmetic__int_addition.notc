@@ -1,0 +1,8 @@
+void main() {
+    printInt(8 + 10);
+    printInt(1234 +  0);
+    printInt(5 + -200);
+    printInt(-103 +  40103);
+    printInt(-6 + -1);
+    printInt(2147483647 + 1); // ints should compile to JVM's 32-bit ints
+}

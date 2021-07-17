@@ -1,0 +1,9 @@
+void main() {
+    printInt(3 * 33);
+    printInt(1001 * -5);
+    printInt(-1001 * 5);
+    printInt(-3 * -33);
+    printInt(1 * 999273);
+    printInt(28471 * 0);
+    printInt(0 * 149 * 23478 * 87);
+}
