@@ -1,10 +1,9 @@
 package notc.codegen;
 
-import notc.antlrgen.NotCParser.SrcType;
-import notc.antlrgen.NotCParser.DefContext;
-import notc.antlrgen.NotCParser.StmContext;
+import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.FunctionDefinitionContext;
+import notc.antlrgen.NotCParser.StatementContext;
 
-import org.antlr.v4.runtime.tree.TerminalNode;
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.text.TextStringBuilder;
 import com.google.common.collect.Lists;
@@ -35,21 +34,19 @@ class JvmMethod {
     // Instantiates a model of a JVM method from:
     //  * A parse tree rooted at a function definition and
     //  * A specification of its name and signature in JVM format
-    static JvmMethod from(DefContext def, String JvmSpec) {
+    static JvmMethod from(FunctionDefinitionContext funDef, String JvmSpec) {
         JvmMethod method = new JvmMethod(JvmSpec);
         // Add paramters as local variables
-        List<SrcType> paramTypes = Lists.transform(def.params().type(),
-                                                   tCtx -> tCtx.srcType);
-        List<Token> paramIds = Lists.transform(def.params().ID(),
-                                               TerminalNode::getSymbol);
+        List<Type> paramTypes = Lists.transform(funDef.paramTypes,
+                                                t -> Type.resolve(t));
         method.pushScope();
-        int paramListLen = paramIds.size();
+        int paramListLen = paramTypes.size();
         // (Guaranteed by parser to be of same length)
         for (int i = 0; i < paramListLen; i++)
-            method.addVar(paramIds.get(i), paramTypes.get(i));
+            method.addVar(funDef.paramIds.get(i), paramTypes.get(i));
         StatementGenerator stmGen = StatementGenerator.withTarget(method);
         // Generate the statements
-        for (StmContext stm : def.stm())
+        for (StatementContext stm : funDef.body)
             stm.accept(stmGen);
         return method;
     }
@@ -90,7 +87,7 @@ class JvmMethod {
     // Local variables. This is effectively symbol table functionality.
 
     // Double is the only type that takes up two "slots" on the stack
-    void addVar(Token idTok, SrcType t) {
+    void addVar(Token idTok, Type t) {
         vars.peekFirst().put(idTok.getText(), nextVarAddr);
         nextVarAddr += t.isDouble() ? 2 : 1;
     }

@@ -1,7 +1,7 @@
 package notc.semantics;
 
 import notc.antlrgen.NotCParser;
-import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.Type;
 
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.CommonToken;
@@ -27,12 +27,12 @@ class SymbolTableTest {
     @Test
     void AddFun_LookupSucceeds() {
         Token funIdTok = new CommonToken(NotCParser.ID, "fun");
-        SrcType returnType = SrcType.DOUBLE;
-        List<SrcType> paramTypes = List.of(SrcType.INT,
-                                           SrcType.BOOL,
-                                           SrcType.STRING);
-        symTab.addFun(funIdTok, new FunType(returnType, paramTypes));
-        FunType lookedUpFun = symTab.lookupFun(funIdTok);
+        Type returnType = Type.DOUBLE;
+        List<Type> paramTypes = List.of(Type.INT,
+                                        Type.BOOL,
+                                        Type.STRING);
+        symTab.addFun(funIdTok, new FunctionType(returnType, paramTypes));
+        FunctionType lookedUpFun = symTab.lookupFun(funIdTok);
         assertTrue(lookedUpFun.returnType() == returnType);
         assertTrue(paramTypes.equals(lookedUpFun.paramTypes()));
     }
@@ -61,32 +61,32 @@ class SymbolTableTest {
     @Test
     void SetContextWithParams_ParamsGetDefinedAsVars() {
         int nParams = 10;
-        List<SrcType> paramTypes = new ArrayList<>(nParams);
+        List<Type> paramTypes = new ArrayList<>(nParams);
         List<Token> paramIdToks = new ArrayList<>(nParams);
         for (int i = 0; i < nParams; i++) {
-            paramTypes.add(SrcType.INT);
+            paramTypes.add(Type.INT);
             paramIdToks.add(new CommonToken(NotCParser.ID, "someVar" + i));
         }
         symTab.setContext(paramTypes, paramIdToks);
         for (int i = 0; i < nParams; i++) {
             Token idTok = paramIdToks.get(i);
-            SrcType lookedUpType = symTab.lookupVar(idTok);
-            assertEquals(lookedUpType, paramTypes.get(i));
+            Type lookedUpType = symTab.lookupVar(idTok);
+            assertEquals(paramTypes.get(i), lookedUpType);
         }
     }
 
     @Test
     void AddVar_LookupSucceeds() {
-        SrcType declaredType = SrcType.STRING;
+        Type declaredType = Type.STRING;
         Token varIdTok = new CommonToken(NotCParser.ID, "var");
         symTab.addVar(declaredType, varIdTok);
-        SrcType lookedUpType = symTab.lookupVar(varIdTok);
-        assertEquals(lookedUpType, declaredType);
+        Type lookedUpType = symTab.lookupVar(varIdTok);
+        assertEquals(declaredType, lookedUpType);
     }
 
     @Test
     void AddIdenticalVarsInDifferentScopes_BothSuccessfullyAdded() {
-        SrcType varType = SrcType.BOOL;
+        Type varType = Type.BOOL;
         String varId = "varWithThisName";
         Token varIdTok1 = new CommonToken(NotCParser.ID, varId);
         Token varIdTok2 = new CommonToken(NotCParser.ID, varId);
@@ -97,15 +97,15 @@ class SymbolTableTest {
 
     @Test
     void LookupVarInDeepScope_LookupSucceeds() {
-        SrcType varType = SrcType.DOUBLE;
+        Type varType = Type.DOUBLE;
         String varId = "iAmDeep";
         Token varIdTok = new CommonToken(NotCParser.ID, varId);
         symTab.addVar(varType, varIdTok);
         int nScopes = 20;
         for (int i = 0; i < nScopes; i++)
             symTab.pushScope();
-        SrcType lookedUpType = symTab.lookupVar(varIdTok);
-        assertEquals(lookedUpType, varType);
+        Type lookedUpType = symTab.lookupVar(varIdTok);
+        assertEquals(varType, lookedUpType);
     }
 
     @Test
@@ -121,7 +121,7 @@ class SymbolTableTest {
     void OutOfScopeVarIsLookedUp_SemanticExceptionThrown() {
         symTab.pushScope();
         Token varIdTok = new CommonToken(NotCParser.ID, "var");
-        symTab.addVar(SrcType.STRING, varIdTok);
+        symTab.addVar(Type.STRING, varIdTok);
         symTab.popScope();
         Exception thrownException = assertThrows(SemanticException.class, () -> {
             symTab.lookupVar(varIdTok);
@@ -132,7 +132,7 @@ class SymbolTableTest {
 
     @Test
     void AddIdenticalVarsInSameScope_SemanticExceptionThrown() {
-        SrcType varType = SrcType.INT;
+        Type varType = Type.INT;
         String varId = "varrr";
         Token varIdTok1 = new CommonToken(NotCParser.ID, varId);
         Token varIdTok2 = new CommonToken(NotCParser.ID, varId);
@@ -148,7 +148,7 @@ class SymbolTableTest {
     @Test
     void AddVoidVar_SemanticExceptionThrown() {
         Exception thrownException = assertThrows(SemanticException.class, () -> {
-            symTab.addVar(SrcType.VOID, new CommonToken(NotCParser.ID, "var"));
+            symTab.addVar(Type.VOID, new CommonToken(NotCParser.ID, "var"));
         });
         String actualMessage = thrownException.getMessage();
         assertTrue(actualMessage.contains("Variables cannot have type void"));
@@ -156,7 +156,7 @@ class SymbolTableTest {
 
     @Test
     void AddVarTwice_SemanticExceptionThrown() {
-        SrcType declaredType = SrcType.BOOL;
+        Type declaredType = Type.BOOL;
         Token varIdTok = new CommonToken(NotCParser.ID, "var");
         symTab.addVar(declaredType, varIdTok);
         Exception thrownException = assertThrows(SemanticException.class, () -> {

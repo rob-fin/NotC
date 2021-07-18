@@ -2,16 +2,17 @@ package notc.codegen;
 
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.ProgramContext;
-import notc.antlrgen.NotCParser.DefContext;
-import notc.antlrgen.NotCParser.TypeContext;
-import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.FunctionDefinitionContext;
+import notc.antlrgen.NotCParser.Type;
 
 import org.antlr.v4.runtime.tree.ParseTreeProperty;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.TextStringBuilder;
+import com.google.common.collect.Lists;
 
 import java.util.Map;
+import java.util.List;
 import java.util.HashMap;
 import java.io.InputStream;
 import java.io.IOException;
@@ -51,17 +52,18 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
 
         ParseTreeProperty<String> JvmSpecs = new ParseTreeProperty<>();
 
-        // Then add the functions defined in the program
-        for (DefContext def : prog.def()) {
-            String funId = def.funId.getText();
+        // Then add the functions defined by the program
+        for (FunctionDefinitionContext funDef : prog.funDefs) {
+            String funId = funDef.id.getText();
             StringBuilder sb = new StringBuilder(funId + "(");
-            for (TypeContext tCtx : def.params().type())
-                sb.append(JvmTypeSymbol(tCtx.srcType));
-            sb.append(")" + JvmTypeSymbol(def.returnType.srcType));
+            List<Type> paramTypes = Lists.transform(funDef.paramTypes, t -> Type.resolve(t));
+            for (Type t : paramTypes)
+                sb.append(JvmTypeSymbol(t));
+            sb.append(")" + JvmTypeSymbol(Type.resolve(funDef.returnType)));
             String methodSpec = sb.toString();
             String qualifiedMethod = className + "/" + methodSpec;
             methodSymTab.put(funId, qualifiedMethod);
-            JvmSpecs.put(def, methodSpec); // Needed again when generating method headers
+            JvmSpecs.put(funDef, methodSpec); // Needed again when generating method headers
         }
 
         // The symbol table for methods does not change and is only needed when generating
@@ -69,9 +71,9 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         ExpressionGenerator.setMethodSymTab(methodSymTab);
 
         // Generate JVM methods from the function definitions of the program
-        for (DefContext def : prog.def()) {
-            String spec = JvmSpecs.get(def);
-            JvmMethod method = JvmMethod.from(def, spec);
+        for (FunctionDefinitionContext funDef : prog.funDefs) {
+            String spec = JvmSpecs.get(funDef);
+            JvmMethod method = JvmMethod.from(funDef, spec);
             TextStringBuilder methodOutput = method.collectCode();
             finalOutput.append(methodOutput);
         }
@@ -80,9 +82,9 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         return finalOutput.toString();
     }
 
-    // Resolves SrcTypes to their corresponding JVM type symbols
-    private String JvmTypeSymbol(SrcType srcType) {
-        switch(srcType) {
+    // Resolves Types to their corresponding JVM type symbols
+    private String JvmTypeSymbol(Type t) {
+        switch (t) {
             case BOOL:
                 return "Z";
             case VOID:

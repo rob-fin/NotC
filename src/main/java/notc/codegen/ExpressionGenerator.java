@@ -1,18 +1,24 @@
 package notc.codegen;
 
-import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser;
+import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCBaseVisitor;
-import notc.antlrgen.NotCParser.ExpContext;
-import notc.antlrgen.NotCParser.FalseLitExpContext;
-import notc.antlrgen.NotCParser.TrueLitExpContext;
-import notc.antlrgen.NotCParser.DoubleLitExpContext;
-import notc.antlrgen.NotCParser.IntLitExpContext;
-import notc.antlrgen.NotCParser.StringLitExpContext;
-import notc.antlrgen.NotCParser.VarExpContext;
-import notc.antlrgen.NotCParser.FunCallExpContext;
-import notc.antlrgen.NotCParser.AssExpContext;
-import notc.antlrgen.NotCParser.MultiplicativeExpContext;
-import notc.antlrgen.NotCParser.AdditiveExpContext;
+import notc.antlrgen.NotCParser.ExpressionContext;
+import notc.antlrgen.NotCParser.FalseLiteralExpressionContext;
+import notc.antlrgen.NotCParser.TrueLiteralExpressionContext;
+import notc.antlrgen.NotCParser.DoubleLiteralExpressionContext;
+import notc.antlrgen.NotCParser.IntLiteralExpressionContext;
+import notc.antlrgen.NotCParser.StringLiteralExpressionContext;
+import notc.antlrgen.NotCParser.VariableExpressionContext;
+import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
+import notc.antlrgen.NotCParser.AssignmentExpressionContext;
+import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
+import notc.antlrgen.NotCParser.PostIncrementExpressionContext;
+import notc.antlrgen.NotCParser.PostDecrementExpressionContext;
+import notc.antlrgen.NotCParser.PreIncrementExpressionContext;
+import notc.antlrgen.NotCParser.PreDecrementExpressionContext;
+
+import org.antlr.v4.runtime.Token;
 
 import java.util.Map;
 
@@ -30,142 +36,137 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return instance;
     }
 
+    // Literals: instructions to put constant values on the stack
     @Override
-    public Void visitFalseLitExp(FalseLitExpContext falseLitExp) {
-        targetMethod.addInstruction("   ldc 0", 1);
+    public Void visitFalseLiteralExpression(FalseLiteralExpressionContext falseLiteralExpr) {
+        targetMethod.addInstruction("    ldc 0", 1);
         return null;
     }
 
     @Override
-    public Void visitTrueLitExp(TrueLitExpContext trueLitExp) {
-        targetMethod.addInstruction("   ldc 1", 1);
+    public Void visitTrueLiteralExpression(TrueLiteralExpressionContext trueLiteralExpr) {
+        targetMethod.addInstruction("    ldc 1", 1);
         return null;
     }
 
     @Override
-    public Void visitDoubleLitExp(DoubleLitExpContext doubleLitExp) {
-        String srcText = doubleLitExp.DOUBLE_LIT().getText();
-        double value = Double.parseDouble(srcText);
-        targetMethod.addInstruction("   ldc2_w " + value, 2);
+    public Void visitDoubleLiteralExpression(DoubleLiteralExpressionContext doubleLiteralExpr) {
+        String srcText = doubleLiteralExpr.value.getText();
+        targetMethod.addInstruction("    ldc2_w " + srcText, 2);
         return null;
     }
 
     @Override
-    public Void visitIntLitExp(IntLitExpContext intLitExp) {
-        String srcText = intLitExp.INT_LIT().getText();
-        int value = Integer.parseInt(srcText);
-        targetMethod.addInstruction("   ldc " + value, 1);
+    public Void visitIntLiteralExpression(IntLiteralExpressionContext intLitExpr) {
+        String srcText = intLitExpr.value.getText();
+        targetMethod.addInstruction("    ldc " + srcText, 1);
         return null;
     }
 
     @Override
-    public Void visitStringLitExp(StringLitExpContext strLitExp) {
-        String strLit = strLitExp.STRING_LIT().getText();
-        targetMethod.addInstruction("   ldc " + strLit, 1);
+    public Void visitStringLiteralExpression(StringLiteralExpressionContext strLitExpr) {
+        String srcText = strLitExpr.value.getText();
+        targetMethod.addInstruction("    ldc " + srcText, 1);
         return null;
     }
 
     // Variable expression: look up its address and load it
     @Override
-    public Void visitVarExp(VarExpContext varExp) {
-        int varAddr = targetMethod.lookupVar(varExp.varId);
-        if (varExp.typeAnnot.isDouble())
-            targetMethod.addInstruction("   dload " + varAddr, 2);
-        else if (varExp.typeAnnot.isString())
-            targetMethod.addInstruction("   aload " + varAddr, 1);
+    public Void visitVariableExpression(VariableExpressionContext varExpr) {
+        Type varType = varExpr.type;
+        int varAddr = targetMethod.lookupVar(varExpr.varId);
+        if (varType.isDouble())
+            targetMethod.addInstruction("    dload " + varAddr, 2);
+        else if (varType.isString())
+            targetMethod.addInstruction("    aload " + varAddr, 1);
         else
-            targetMethod.addInstruction("   iload " + varAddr, 1);
+            targetMethod.addInstruction("    iload " + varAddr, 1);
         return null;
     }
 
     // Function calls
     @Override
-    public Void visitFunCallExp(FunCallExpContext callExp) {
+    public Void visitFunctionCallExpression(FunctionCallExpressionContext funCall) {
         // Put all arguments on stack and calculate their size
         int argStackSize = 0;
-        for (ExpContext arg : callExp.exp()) {
-            visit(arg);
-            if (arg.typeAnnot.isDouble())
+        for (ExpressionContext arg : funCall.args) {
+            arg.accept(this);
+            if (arg.type.isDouble())
                 argStackSize += 2;
             else
-                argStackSize += 1; // int or bool arg
+                argStackSize += 1; // int, bool, string
         }
 
         // Return value is left on stack, so calculate its size
-        SrcType returnType = callExp.typeAnnot;
+        Type returnType = funCall.type;
         int returnStackSize = 0;
         if (returnType.isDouble())
             returnStackSize = 2;
-        else if (!returnType.isVoid()) // int, bool, string
+        else if (!returnType.isVoid())
             returnStackSize = 1;
 
-        String invocation = "   invokestatic " + methodSymTab.get(callExp.funId.getText());
-        // Arguments are popped, return value is pushed
+        String invocation = "    invokestatic " + methodSymTab.get(funCall.id.getText());
+                                          // Arguments are popped, return value is pushed
         targetMethod.addInstruction(invocation, returnStackSize - argStackSize);
-
         return null;
-
     }
 
     // Assignments
     @Override
-    public Void visitAssExp(AssExpContext ass) {
-        ass.exp().accept(this); // Expression on the right of = goes on stack
-        int varAddr = targetMethod.lookupVar(ass.varId);
+    public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
+        assExpr.rhs.accept(this); // Expression on the right of = goes on stack
+        int varAddr = targetMethod.lookupVar(assExpr.varId);
         String storeInstr;
         String dupInstr;
         int stackSpace;
-        SrcType expType = ass.typeAnnot;
-        if (expType.isDouble()) {
+        if (assExpr.type.isDouble()) {
             storeInstr = "    dstore ";
-            dupInstr = "    dup2";
+            dupInstr   = "    dup2";
             stackSpace = 2;
-        } else if (expType.isString()) {
+        } else if (assExpr.type.isString()) {
             storeInstr = "    astore ";
-            dupInstr = "    dup";
+            dupInstr   = "    dup";
             stackSpace = 1;
         } else { // ints, bools
             storeInstr = "    istore ";
-            dupInstr = "    dup";
+            dupInstr   = "    dup";
             stackSpace = 1;
         }
-        // Stored value is value of expression and should be left on stack
+        // Stored value is value of expression and is left on stack
         targetMethod.addInstruction(dupInstr, stackSpace);
         targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
         return null;
     }
 
-    // Utility to generate +, -, *, /
-    private void generateArithmetic(ExpContext opnd1, ExpContext opnd2,
-                                    SrcType expType, String operation) {
+    // +, -, *, /, %
+    @Override
+    public Void visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
         // Generate operands
-        opnd1.accept(this);
-        opnd2.accept(this);
-
-        if (expType.isInt()) // stack: i i -> i
-            targetMethod.addInstruction("i" + operation, -1);
+        arithmExpr.opnd1.accept(this);
+        arithmExpr.opnd2.accept(this);
+        String operation = operationByToken(arithmExpr.op);
+        if (arithmExpr.type.isInt()) // stack: i i -> i
+            targetMethod.addInstruction("    i" + operation, -1);
         else // stack: d d -> d
-            targetMethod.addInstruction("d" + operation, -2);
-    }
+            targetMethod.addInstruction("    d" + operation, -2);
 
-    @Override
-    public Void visitMultiplicativeExp(MultiplicativeExpContext multipExp) {
-        String operation;
-        if (multipExp.MUL() != null)
-            operation = "mul";
-        else if (multipExp.DIV() != null)
-            operation = "div";
-        else
-            operation = "rem";
-        generateArithmetic(multipExp.opnd1, multipExp.opnd2, multipExp.typeAnnot, operation);
         return null;
     }
 
-    @Override
-    public Void visitAdditiveExp(AdditiveExpContext additExp) {
-        String operation = additExp.ADD() == null ? "sub" : "add";
-        generateArithmetic(additExp.opnd1, additExp.opnd2, additExp.typeAnnot, operation);
-        return null;
+    private String operationByToken(Token tok) {
+        switch (tok.getType()) {
+            case NotCParser.MUL:
+                return "mul";
+            case NotCParser.DIV:
+                return "div";
+            case NotCParser.REM:
+                return "rem";
+            case NotCParser.ADD:
+                return "add";
+            case NotCParser.SUB:
+                return "sub";
+            default:
+                return "";
+        }
     }
-
 }

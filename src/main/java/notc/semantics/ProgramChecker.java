@@ -2,9 +2,9 @@ package notc.semantics;
 
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser;
-import notc.antlrgen.NotCParser.SrcType;
+import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.ProgramContext;
-import notc.antlrgen.NotCParser.DefContext;
+import notc.antlrgen.NotCParser.FunctionDefinitionContext;
 
 import org.antlr.v4.runtime.CommonToken;
 import com.google.common.collect.Lists;
@@ -14,37 +14,37 @@ import java.util.List;
 // Visitor for the highest-level construct in the grammar. Entry point for semantic analysis.
 public class ProgramChecker extends NotCBaseVisitor<Void> {
 
-    /* Check the list of function definitions in two passes:
-     * First to collect the id and type signature of each function.
-     * Then to check their definitions in a context where these functions are declared. */
+    // Check the list of function definitions in two passes:
+    // First to collect the id and type signature of each function.
+    // Then to check their definitions in a context where these functions are declared.
     @Override
     public Void visitProgram(ProgramContext prog) {
         SymbolTable symTab = new SymbolTable();
 
         // Populate symbol table with functions
-        for (DefContext def : prog.def()) {
-            SrcType returnType = SrcType.resolve(def.returnType);
-            List<SrcType> paramTypes = Lists.transform(def.params().type(),
-                                                       t -> SrcType.resolve(t));
-            FunType signature = new FunType(returnType, paramTypes);
-            symTab.addFun(def.funId, signature);
+        for (FunctionDefinitionContext funDef : prog.funDefs) {
+            Type returnType = Type.resolve(funDef.returnType);
+            List<Type> paramTypes = Lists.transform(funDef.paramTypes,
+                                                    t -> Type.resolve(t));
+            FunctionType signature = new FunctionType(returnType, paramTypes);
+            symTab.addFun(funDef.id, signature);
         }
 
         // Check that main is present and ok
-        FunType mainType = symTab.lookupFun(new CommonToken(NotCParser.ID, "main"));
+        FunctionType mainType = symTab.lookupFun(new CommonToken(NotCParser.ID, "main"));
         if (mainType.arity() != 0)
             throw new SemanticException("Non-empty parameter list in function main");
-        SrcType mainReturn = mainType.returnType();
+        Type mainReturn = mainType.returnType();
         if (!mainReturn.isVoid())
             throw new SemanticException("Non-void return type declared for function main");
 
         // Check each function definition
         FunctionChecker funChecker = new FunctionChecker(symTab);
-        for (DefContext def : prog.def())
-            def.accept(funChecker);
+        for (FunctionDefinitionContext funDef : prog.funDefs)
+            funChecker.checkDefinition(funDef);
 
-        /* Program is semantically sound and its parse tree now
-         * has type annotations to be used by the code generator. */
+        // Program is semantically sound and its parse tree now
+        // has type annotations to be used by the code generator.
         return null;
     }
 
