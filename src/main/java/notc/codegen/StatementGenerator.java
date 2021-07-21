@@ -1,20 +1,18 @@
 package notc.codegen;
 
-import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCBaseVisitor;
+import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.StatementContext;
 import notc.antlrgen.NotCParser.DeclarationStatementContext;
+import notc.antlrgen.NotCParser.InitializationStatementContext;
 import notc.antlrgen.NotCParser.ExpressionStatementContext;
+import notc.antlrgen.NotCParser.BlockStatementContext;
+import notc.antlrgen.NotCParser.WhileStatementContext;
 import notc.antlrgen.NotCParser.IfStatementContext;
 import notc.antlrgen.NotCParser.IfElseStatementContext;
-import notc.antlrgen.NotCParser.WhileStatementContext;
-import notc.antlrgen.NotCParser.BlockStatementContext;
 import notc.antlrgen.NotCParser.ReturnStatementContext;
-import notc.antlrgen.NotCParser.InitializationStatementContext;
 
 import org.antlr.v4.runtime.Token;
-
-import java.util.List;
 
 // Visitor that generates Jasmin instructions from statements.
 // Most instructions generated here do something with what's
@@ -34,7 +32,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
 
     @Override
     public Void visitDeclarationStatement(DeclarationStatementContext declStm) {
-        Type declaredType = Type.resolve(declStm.typeDecl);
+        Type declaredType = declStm.typeDeclaration.type;
         for (Token idTok : declStm.varIds)
             targetMethod.addVar(idTok, declaredType);
         return null;
@@ -43,7 +41,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitInitializationStatement(InitializationStatementContext initStm) {
         // Get an address for the variable
-        Type varType = Type.resolve(initStm.typeDecl);
+        Type varType = initStm.typeDeclaration.type;
         targetMethod.addVar(initStm.varId, varType);
         // Generate its initializing expression
         initStm.expr.accept(exprGen);

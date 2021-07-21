@@ -1,11 +1,17 @@
 grammar NotC;
 
+
 /* Type patch */
 
+@parser::header {
+import com.google.common.collect.Lists;
+import java.util.List;
+}
+
 @parser::members {
-    // Enum representing the different types in the language. Instances of
-    // ANTLR-generated abstract syntax classes are a bit awkward to compare to
-    // each other, so this is injected among them and used instead of TypeContexts.
+    // Enum representing the different types in the language.
+    // Injected among the ANTLR-generated abstract syntax classes
+    // and used instead of TypeContexts in the compiler components.
     public enum Type {
         BOOL,
         STRING,
@@ -37,8 +43,8 @@ grammar NotC;
             return compareTo(INT) >= 0;
         }
 
-        // Resolves abstract syntax types to instances of
-        // this enum at runtime using a utility visitor
+        // Resolves abstract syntax types to instances
+        // of this enum using a utility visitor
         public static Type resolve(TypeTokenContext ctx) {
             return ctx.accept(resolver);
         }
@@ -46,7 +52,6 @@ grammar NotC;
         private static TypeVisitor resolver = new TypeVisitor();
 
         static class TypeVisitor extends NotCBaseVisitor<Type> {
-
             @Override
             public Type visitBoolType(BoolTypeContext ctx) {
                 ctx.type = BOOL;
@@ -76,7 +81,6 @@ grammar NotC;
                 ctx.type = VOID;
                 return VOID;
             }
-
         }
     }
 }
@@ -90,56 +94,80 @@ program
     ;
 
 // Function definition: type, name, parameter list, body
-functionDefinition
-    : returnType=typeToken
+// Saves type signature in context object's annotation fields when parsing
+functionDefinition locals [Type returnType, List<Type> paramTypes]
+@after {
+    $ctx.returnType = $ctx.readReturnType.type;
+    $ctx.paramTypes = Lists.transform($ctx.readParamTypes, t -> t.type);
+}
+    :
+      readReturnType=typeToken
       id=ID
-      '(' (paramTypes+=typeToken paramIds+=ID (',' paramTypes+=typeToken paramIds+=ID)*)? ')'
-      '{' body+=statement* '}'
+      LEFT_PAREN (readParamTypes+=typeToken paramIds+=ID (COMMA readParamTypes+=typeToken paramIds+=ID)*)? RIGHT_PAREN
+      LEFT_BRACE body+=statement* RIGHT_BRACE
     ;
 
+// Match type tokens in a parser rule so that the Type enum can be set
 typeToken locals [Type type]
-    : 'bool'   # BoolType
-    | 'double' # DoubleType
-    | 'int'    # IntType
-    | 'string' # StringType
-    | 'void'   # VoidType
+@after {
+    $ctx.type = Type.resolve($ctx);
+}
+    : BOOL    # BoolType
+    | DOUBLE  # DoubleType
+    | INT     # IntType
+    | STRING  # StringType
+    | VOID    # VoidType
     ;
 
 statement
-    : typeDecl=typeToken varId=ID '=' expr=expression ';'                # InitializationStatement
-    | typeDecl=typeToken varIds+=ID (',' varIds+=ID)* ';'                # DeclarationStatement
-    | expr=expression ';'                                                # ExpressionStatement
-    | 'return' expr=expression? ';'                                      # ReturnStatement
-    | '{' statements+=statement* '}'                                     # BlockStatement
-    | 'while' '(' expr=expression ')' stm=statement                      # WhileStatement
-    | 'if' '(' expr=expression ')' stm=statement                         # IfStatement
-    | 'if' '(' expr=expression ')' stm1=statement 'else' stm2=statement  # IfElseStatement
+    : typeDeclaration=typeToken varId=ID ASSIGN expr=expression STM_TERM                # InitializationStatement
+    | typeDeclaration=typeToken varIds+=ID (COMMA varIds+=ID)* STM_TERM                 # DeclarationStatement
+    | expr=expression STM_TERM                                                          # ExpressionStatement
+    | 'return' expr=expression? STM_TERM                                                # ReturnStatement
+    | LEFT_BRACE statements+=statement* RIGHT_BRACE                                     # BlockStatement
+    | 'while' LEFT_PAREN expr=expression RIGHT_PAREN stm=statement                      # WhileStatement
+    | 'if' '(' expr=expression ')' stm=statement                                        # IfStatement
+    | 'if' LEFT_PAREN expr=expression RIGHT_PAREN stm1=statement 'else' stm2=statement  # IfElseStatement
     ;
 
-// Expressions in order of decreasing precedence.
-// Adds type annotation to each expression class in the abstract syntax.
+// Expressions in order of decreasing precedence
+// The type annotation is set during semantic analysis
 expression locals [Type type]
-    : '(' expr=expression ')'                                             # ParenthesizedExpression
-    | 'false'                                                             # FalseLiteralExpression
-    | 'true'                                                              # TrueLiteralExpression
-    | value=DOUBLE_LIT                                                    # DoubleLiteralExpression
-    | value=INT_LIT                                                       # IntLiteralExpression
-    | value=STRING_LIT                                                    # StringLiteralExpression
-    | varId=ID                                                            # VariableExpression
-    | id=ID '(' (args+=expression (',' args+=expression)*)? ')'           # FunctionCallExpression
-    | varId=ID '++'                                                       # PostIncrementExpression
-    | varId=ID '--'                                                       # PostDecrementExpression
-    | '++' varId=ID                                                       # PreIncrementExpression
-    | '--' varId=ID                                                       # PreDecrementExpression
-    | opnd1=expression op=(MUL | DIV | REM) opnd2=expression              # ArithmeticExpression
-    | opnd1=expression op=(ADD | SUB)       opnd2=expression              # ArithmeticExpression
-    | opnd1=expression op=(LT | GT | GE | LE | EQ | NE) opnd2=expression  # ComparisonExpression
-    | opnd1=expression op=(AND | OR) opnd2=expression                     # AndOrExpression
-    | varId=ID  ASS rhs=expression                                        # AssignmentExpression
+    : LEFT_PAREN expr=expression RIGHT_PAREN                                      # ParenthesizedExpression
+    | 'false'                                                                     # FalseLiteralExpression
+    | 'true'                                                                      # TrueLiteralExpression
+    | value=DOUBLE_LIT                                                            # DoubleLiteralExpression
+    | value=INT_LIT                                                               # IntLiteralExpression
+    | value=STRING_LIT                                                            # StringLiteralExpression
+    | varId=ID                                                                    # VariableExpression
+    | id=ID LEFT_PAREN (args+=expression (COMMA args+=expression)*)? RIGHT_PAREN  # FunctionCallExpression
+    | varId=ID '++'                                                               # PostIncrementExpression
+    | varId=ID '--'                                                               # PostDecrementExpression
+    | '++' varId=ID                                                               # PreIncrementExpression
+    | '--' varId=ID                                                               # PreDecrementExpression
+    | opnd1=expression op=(MUL | DIV | REM) opnd2=expression                      # ArithmeticExpression
+    | opnd1=expression op=(ADD | SUB) opnd2=expression                            # ArithmeticExpression
+    | opnd1=expression op=(LT | GT | GE | LE | EQ | NE) opnd2=expression          # ComparisonExpression
+    | opnd1=expression op=(AND | OR) opnd2=expression                             # AndOrExpression
+    | varId=ID  ASSIGN rhs=expression                                             # AssignmentExpression
     ;
 
-// Lexer rules for operators, identifiers, literals, white space, and comments
 
+// Lexer rules
+
+BOOL   : 'bool' ;
+DOUBLE : 'double' ;
+INT    : 'int' ;
+STRING : 'string';
+VOID   : 'void' ;
+
+COMMA       : ',' ;
+LEFT_PAREN  : '(' ;
+RIGHT_PAREN : ')' ;
+LEFT_BRACE  : '{' ;
+RIGHT_BRACE : '}' ;
+STM_TERM    : ';' ;
+ASSIGN      : '=' ;
 
 MUL : '*'  ;
 DIV : '/'  ;
@@ -154,7 +182,6 @@ EQ  : '==' ;
 NE  : '!=' ;
 AND : '&&' ;
 OR  : '||' ;
-ASS : '='  ;
 
 
 ID  : LETTER (LETTER | DIGIT | '_')* ;

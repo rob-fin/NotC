@@ -16,8 +16,6 @@ import notc.antlrgen.NotCParser.ReturnStatementContext;
 
 import org.antlr.v4.runtime.Token;
 
-import java.util.List;
-
 // Visitor that performs semantic analysis on function definitions.
 // This involves visiting each statement
 // and type checking their constituent expressions.
@@ -43,7 +41,7 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     // "type id1, id2...": Add declared variables to symbol table
     @Override
     public Void visitDeclarationStatement(DeclarationStatementContext declStm) {
-        Type declaredType = Type.resolve(declStm.typeDecl);
+        Type declaredType = declStm.typeDeclaration.type;
         for (Token id : declStm.varIds)
             symTab.addVar(declaredType, id);
         return null;
@@ -52,7 +50,7 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     // "type id = expr": Add variable after checking its initializing expression
     @Override
     public Void visitInitializationStatement(InitializationStatementContext initStm) {
-        Type declaredType = Type.resolve(initStm.typeDecl);
+        Type declaredType = initStm.typeDeclaration.type;
         exprChecker.expectType(initStm.expr, declaredType);
         symTab.addVar(declaredType, initStm.varId);
         return null;
@@ -64,6 +62,7 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         exprStm.expr.accept(exprChecker);
         return null;
     }
+
 
     // New scope within block statement
     @Override

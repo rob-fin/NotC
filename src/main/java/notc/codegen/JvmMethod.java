@@ -6,9 +6,7 @@ import notc.antlrgen.NotCParser.StatementContext;
 
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.text.TextStringBuilder;
-import com.google.common.collect.Lists;
 
-import java.util.List;
 import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.HashMap;
@@ -23,12 +21,12 @@ class JvmMethod {
 
     private String JvmSpec; // Part of method header
     private TextStringBuilder body;
-    private ArrayDeque<HashMap<String,Integer>> vars;
+    private ArrayDeque<Map<String,Integer>> vars;
 
     private JvmMethod(String JvmSpec) {
         this.JvmSpec = JvmSpec;
         body = new TextStringBuilder();
-        vars = new ArrayDeque<HashMap<String,Integer>>();
+        vars = new ArrayDeque<Map<String,Integer>>();
     }
 
     // Instantiates a model of a JVM method from:
@@ -37,17 +35,18 @@ class JvmMethod {
     static JvmMethod from(FunctionDefinitionContext funDef, String JvmSpec) {
         JvmMethod method = new JvmMethod(JvmSpec);
         // Add paramters as local variables
-        List<Type> paramTypes = Lists.transform(funDef.paramTypes,
-                                                t -> Type.resolve(t));
         method.pushScope();
-        int paramListLen = paramTypes.size();
+        int paramListLen = funDef.paramTypes.size();
         // (Guaranteed by parser to be of same length)
         for (int i = 0; i < paramListLen; i++)
-            method.addVar(funDef.paramIds.get(i), paramTypes.get(i));
+            method.addVar(funDef.paramIds.get(i), funDef.paramTypes.get(i));
         StatementGenerator stmGen = StatementGenerator.withTarget(method);
         // Generate the statements
         for (StatementContext stm : funDef.body)
             stm.accept(stmGen);
+        // Assembler requires all method bodies to end with return (language does not)
+        if (funDef.returnType.isVoid())
+            method.addInstruction("    return", 0);
         return method;
     }
 
@@ -96,11 +95,11 @@ class JvmMethod {
     Integer lookupVar(Token idTok) {
         String varId = idTok.getText();
         Integer addr;
-        for (HashMap<String,Integer> scope : vars) {
+        for (Map<String,Integer> scope : vars) {
             addr = scope.get(varId);
             if (addr != null)
                 return addr;
         }
-        return null; // Avoids compilation error
+        return null;
     }
 }

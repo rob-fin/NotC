@@ -7,7 +7,6 @@ import notc.antlrgen.NotCParser.ProgramContext;
 import notc.antlrgen.NotCParser.FunctionDefinitionContext;
 
 import org.antlr.v4.runtime.CommonToken;
-import com.google.common.collect.Lists;
 
 import java.util.List;
 
@@ -23,10 +22,8 @@ public class ProgramChecker extends NotCBaseVisitor<Void> {
 
         // Populate symbol table with functions
         for (FunctionDefinitionContext funDef : prog.funDefs) {
-            Type returnType = Type.resolve(funDef.returnType);
-            List<Type> paramTypes = Lists.transform(funDef.paramTypes,
-                                                    t -> Type.resolve(t));
-            FunctionType signature = new FunctionType(returnType, paramTypes);
+            Type returnType = funDef.returnType;
+            FunctionType signature = new FunctionType(returnType, funDef.paramTypes);
             symTab.addFun(funDef.id, signature);
         }
 

@@ -9,10 +9,8 @@ import org.antlr.v4.runtime.tree.ParseTreeProperty;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.TextStringBuilder;
-import com.google.common.collect.Lists;
 
 import java.util.Map;
-import java.util.List;
 import java.util.HashMap;
 import java.io.InputStream;
 import java.io.IOException;
@@ -56,10 +54,9 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         for (FunctionDefinitionContext funDef : prog.funDefs) {
             String funId = funDef.id.getText();
             StringBuilder sb = new StringBuilder(funId + "(");
-            List<Type> paramTypes = Lists.transform(funDef.paramTypes, t -> Type.resolve(t));
-            for (Type t : paramTypes)
+            for (Type t : funDef.paramTypes)
                 sb.append(JvmTypeSymbol(t));
-            sb.append(")" + JvmTypeSymbol(Type.resolve(funDef.returnType)));
+            sb.append(")" + JvmTypeSymbol(funDef.returnType));
             String methodSpec = sb.toString();
             String qualifiedMethod = className + "/" + methodSpec;
             methodSymTab.put(funId, qualifiedMethod);
