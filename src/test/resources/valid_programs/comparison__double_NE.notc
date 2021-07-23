@@ -1,0 +1,13 @@
+void main() {
+    printInt(3.75 != 3.5);
+    printInt(3.5  != 3.5);
+    printInt(3.25 != 3.5);
+
+    printInt(94.125 != 94.5);
+    printInt(94.125 != 94.125);
+    printInt(94.125 != 94.0625);
+
+    printInt(-7.0 !=  7.0);
+    printInt( 7.0 != -7.0);
+    printInt(-7.0 != -7.0);
+}

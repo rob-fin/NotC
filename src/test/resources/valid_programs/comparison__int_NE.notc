@@ -1,0 +1,13 @@
+void main() {
+    printInt(8 != 7);
+    printInt(7 != 7);
+    printInt(6 != 7);
+
+    printInt(15 != 16);
+    printInt(15 != 15);
+    printInt(15 != 14);
+
+    printInt(-20 !=  20);
+    printInt( 20 != -20);
+    printInt(-20 != -20);
+}

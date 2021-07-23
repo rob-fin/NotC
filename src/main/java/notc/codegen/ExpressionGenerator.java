@@ -13,10 +13,7 @@ import notc.antlrgen.NotCParser.VariableExpressionContext;
 import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
-import notc.antlrgen.NotCParser.PostIncrementExpressionContext;
-import notc.antlrgen.NotCParser.PostDecrementExpressionContext;
-import notc.antlrgen.NotCParser.PreIncrementExpressionContext;
-import notc.antlrgen.NotCParser.PreDecrementExpressionContext;
+import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 
 import org.antlr.v4.runtime.Token;
 
@@ -153,20 +150,100 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return null;
     }
 
-    private String operationByToken(Token tok) {
-        switch (tok.getType()) {
-            case NotCParser.MUL:
-                return "mul";
-            case NotCParser.DIV:
-                return "div";
-            case NotCParser.REM:
-                return "rem";
-            case NotCParser.ADD:
-                return "add";
-            case NotCParser.SUB:
-                return "sub";
-            default:
-                return "";
+    private String operationByToken(Token opTok) {
+        switch (opTok.getType()) {
+            case NotCParser.MUL:  return "mul";
+            case NotCParser.DIV:  return "div";
+            case NotCParser.REM:  return "rem";
+            case NotCParser.ADD:  return "add";
+            case NotCParser.SUB:  return "sub";
+            default:              return "";
         }
     }
+
+    @Override
+    public Void visitComparisonExpression(ComparisonExpressionContext compExpr) {
+        // Put operands on stack
+        compExpr.opnd1.accept(this);
+        compExpr.opnd2.accept(this);
+        Type t1 = compExpr.opnd1.type;
+        Type t2 = compExpr.opnd2.type;
+        if (t1.isInt() && t2.isInt() || t1.isBool())
+            generateIntComparison(compExpr);
+        else
+            generateDoubleComparison(compExpr);
+        return null;
+    }
+
+    private void generateIntComparison(ComparisonExpressionContext compExpr) {
+        String trueLabel = targetMethod.newLabel();
+        String endLabel = targetMethod.newLabel();
+        String op = null;
+        switch (compExpr.op.getType()) {
+            case NotCParser.LT:  op = "lt";
+                                 break;
+            case NotCParser.GT:  op = "gt";
+                                 break;
+            case NotCParser.GE:  op = "ge";
+                                 break;
+            case NotCParser.LE:  op = "le";
+                                 break;
+            case NotCParser.EQ:  op = "eq";
+                                 break;
+            case NotCParser.NE:  op = "ne";
+                                 break;
+        }
+        targetMethod.addInstruction("    if_icmp" + op + " " + trueLabel, -2);
+        targetMethod.addInstruction("    iconst_0", 1); // false
+        targetMethod.addInstruction("    goto " + endLabel, 0);
+        targetMethod.addInstruction(trueLabel + ":", 0);
+        targetMethod.addInstruction("    iconst_1", 1); // true
+        targetMethod.addInstruction(endLabel + ":", 0);
+    }
+
+    private void generateDoubleComparison(ComparisonExpressionContext compExpr) {
+        String trueLabel = targetMethod.newLabel();
+        String falseLabel = targetMethod.newLabel();
+        String endLabel = targetMethod.newLabel();
+        targetMethod.addInstruction("    dcmpg", -3); // stack: d d -> i
+        switch (compExpr.op.getType()) {
+            case NotCParser.LT:  // a < b -> TOS = -1
+                                 targetMethod.addInstruction("    iconst_m1", 1);
+                                 targetMethod.addInstruction("    if_icmpeq " + trueLabel, -2);
+                                 targetMethod.addInstruction("    goto " + falseLabel, 0);
+                                 break;
+            case NotCParser.GT:  // a > b -> TOS = 1
+                                 targetMethod.addInstruction("    iconst_1", 1);
+                                 targetMethod.addInstruction("    if_icmpeq " + trueLabel, -2);
+                                 targetMethod.addInstruction("    goto " + falseLabel, 0);
+                                 break;
+            case NotCParser.GE:  // a >= b -> TOS != -1
+                                 targetMethod.addInstruction("    iconst_m1", 1);
+                                 targetMethod.addInstruction("    if_icmpeq " + falseLabel, -2);
+                                 targetMethod.addInstruction("    goto " + trueLabel, 0);
+                                 break;
+            case NotCParser.LE:  // a <= b -> TOS != 1
+                                 targetMethod.addInstruction("    iconst_1", 1);
+                                 targetMethod.addInstruction("    if_icmpeq " + falseLabel, -2);
+                                 targetMethod.addInstruction("    goto " + trueLabel, 0);
+                                 break;
+            case NotCParser.EQ:  // a = b -> TOS = 0
+                                 targetMethod.addInstruction("    iconst_0", 1);
+                                 targetMethod.addInstruction("    if_icmpeq " + trueLabel, -2);
+                                 targetMethod.addInstruction("    goto " + falseLabel, 0);
+                                 break;
+            case NotCParser.NE:  // a != b -> TOS != 0
+                                 targetMethod.addInstruction("    iconst_0", 1);
+                                 targetMethod.addInstruction("    if_icmpeq " + falseLabel, -2);
+                                 targetMethod.addInstruction("    goto " + trueLabel, 0);
+                                 break;
+        }
+        targetMethod.addInstruction(trueLabel + ":", 0);
+        targetMethod.addInstruction("    iconst_1", 1);
+        targetMethod.addInstruction("    goto " + endLabel, 0);
+        targetMethod.addInstruction(falseLabel + ":", 0);
+        targetMethod.addInstruction("    iconst_0", 1);
+        targetMethod.addInstruction(endLabel + ":", 0);
+    }
+
 }

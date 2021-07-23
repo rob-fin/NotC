@@ -1,0 +1,17 @@
+void main() {
+    fun1(1);
+}
+
+void fun1(int i) {
+    if (i > 10)
+        return;
+    printString("From fun1:");
+    printInt(i);
+    fun2(i + 1);
+}
+
+void fun2(int i) {
+    printString("From fun2:");
+    printInt(i);
+    fun1(i + 1);
+}

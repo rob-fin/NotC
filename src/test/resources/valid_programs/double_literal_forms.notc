@@ -1,0 +1,4 @@
+void main() {
+    printInt(.25 == 0.25);
+    printInt(-0.125 == -.125);
+}

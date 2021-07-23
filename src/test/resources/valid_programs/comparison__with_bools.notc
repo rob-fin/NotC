@@ -1,0 +1,11 @@
+void main() {
+    printInt(false == false);
+    printInt(false == true);
+    printInt(true  == false);
+    printInt(true  == true);
+
+    printInt(false != false);
+    printInt(false != true);
+    printInt(true  != false);
+    printInt(true  != true);
+}
