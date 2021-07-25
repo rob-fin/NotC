@@ -1,0 +1,13 @@
+// int subexpressions should be promoted to double if another subexpression already is
+
+void main() {
+    // The calls to printDouble would also do a promotion when called with ints,
+    // so the tests make sure the fractional parts are preserved
+    printDouble(1.5 + 2 + 3); // 6.5, not 6.0, etc
+    printDouble(5 - 2.5 - 1);
+    printDouble(3 * 3 * 0.5);
+    printDouble(15 / 1 / 1 / 2.0);
+
+    printInt(793.5 > 793);
+    printInt(3 != 3.5);
+}

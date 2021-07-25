@@ -130,9 +130,9 @@ statement
     | 'if' LEFT_PAREN expr=expression RIGHT_PAREN stm1=statement 'else' stm2=statement  # IfElseStatement
     ;
 
-// Expressions in order of decreasing precedence
-// The type annotation is set during semantic analysis
-expression locals [Type type]
+// The type annotation is set during semantic analysis,
+// as is a flag that denotes that a widening primitive conversion (int to double) occurs
+expression locals [Type type, boolean i2d]
     : LEFT_PAREN expr=expression RIGHT_PAREN                                      # ParenthesizedExpression
     | 'false'                                                                     # FalseLiteralExpression
     | 'true'                                                                      # TrueLiteralExpression
@@ -149,7 +149,7 @@ expression locals [Type type]
     | opnd1=expression op=(ADD | SUB) opnd2=expression                            # ArithmeticExpression
     | opnd1=expression op=(LT | GT | GE | LE | EQ | NE) opnd2=expression          # ComparisonExpression
     | opnd1=expression op=(AND | OR) opnd2=expression                             # AndOrExpression
-    | varId=ID  ASSIGN rhs=expression                                             # AssignmentExpression
+    | varId=ID ASSIGN rhs=expression                                              # AssignmentExpression
     ;
 
 

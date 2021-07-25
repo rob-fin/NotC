@@ -1,0 +1,12 @@
+int int_fun() {
+    return 293;
+}
+
+void main() {
+    printDouble(1);
+    printDouble(int_fun());
+    int i;
+    printDouble(i = 89);
+    printDouble(i);
+    printDouble(++i);
+}

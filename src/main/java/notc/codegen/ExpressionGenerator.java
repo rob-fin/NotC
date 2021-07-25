@@ -57,12 +57,14 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     public Void visitIntLiteralExpression(IntLiteralExpressionContext intLitExpr) {
         String srcText = intLitExpr.value.getText();
         targetMethod.addInstruction("    ldc " + srcText, 1);
+        if (intLitExpr.i2d) // int to double conversion
+            targetMethod.addInstruction("    i2d", 1);
         return null;
     }
 
     @Override
-    public Void visitStringLiteralExpression(StringLiteralExpressionContext strLitExpr) {
-        String srcText = strLitExpr.value.getText();
+    public Void visitStringLiteralExpression(StringLiteralExpressionContext strLiteralExpr) {
+        String srcText = strLiteralExpr.value.getText();
         targetMethod.addInstruction("    ldc " + srcText, 1);
         return null;
     }
@@ -78,15 +80,17 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
             targetMethod.addInstruction("    aload " + varAddr, 1);
         else
             targetMethod.addInstruction("    iload " + varAddr, 1);
+        if (varExpr.i2d)
+            targetMethod.addInstruction("    i2d", 1);
         return null;
     }
 
     // Function calls
     @Override
-    public Void visitFunctionCallExpression(FunctionCallExpressionContext funCall) {
+    public Void visitFunctionCallExpression(FunctionCallExpressionContext funCallExpr) {
         // Put all arguments on stack and calculate their size
         int argStackSize = 0;
-        for (ExpressionContext arg : funCall.args) {
+        for (ExpressionContext arg : funCallExpr.args) {
             arg.accept(this);
             if (arg.type.isDouble())
                 argStackSize += 2;
@@ -95,16 +99,18 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         }
 
         // Return value is left on stack, so calculate its size
-        Type returnType = funCall.type;
+        Type returnType = funCallExpr.type;
         int returnStackSize = 0;
         if (returnType.isDouble())
             returnStackSize = 2;
         else if (!returnType.isVoid())
             returnStackSize = 1;
 
-        String invocation = "    invokestatic " + methodSymTab.get(funCall.id.getText());
+        String invocation = "    invokestatic " + methodSymTab.get(funCallExpr.id.getText());
                                           // Arguments are popped, return value is pushed
         targetMethod.addInstruction(invocation, returnStackSize - argStackSize);
+        if (funCallExpr.i2d)
+            targetMethod.addInstruction("    i2d", 1);
         return null;
     }
 
@@ -132,6 +138,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         // Stored value is value of expression and is left on stack
         targetMethod.addInstruction(dupInstr, stackSpace);
         targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
+        if (assExpr.i2d)
+            targetMethod.addInstruction("    i2d", 1);
         return null;
     }
 
@@ -146,7 +154,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
             targetMethod.addInstruction("    i" + operation, -1);
         else // stack: d d -> d
             targetMethod.addInstruction("    d" + operation, -2);
-
+        if (arithmExpr.i2d)
+            targetMethod.addInstruction("    i2d", 1);
         return null;
     }
 
@@ -168,10 +177,10 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         compExpr.opnd2.accept(this);
         Type t1 = compExpr.opnd1.type;
         Type t2 = compExpr.opnd2.type;
-        if (t1.isInt() && t2.isInt() || t1.isBool())
-            generateIntComparison(compExpr);
-        else
+        if (compExpr.opnd1.type.isDouble() || compExpr.opnd2.type.isDouble())
             generateDoubleComparison(compExpr);
+        else
+            generateIntComparison(compExpr);
         return null;
     }
 

@@ -24,13 +24,11 @@ import org.antlr.v4.runtime.Token;
 
 import java.util.List;
 
-// Visitor that type checks expressions. Each visit method tries to infer
-// the type of the expression it was called on. If a type cannot be inferred,
-// a SemanticException is thrown with the offending token and a message.
-// Otherwise, each method annotates the corresponding parse tree node with
-// the type (to be used by the code generator).
-// The inferred type is returned to the caller because the expression
-// may be part of a larger one whose type depends on it.
+// Visitor that type checks expressions. Each visit method tries to infer the type of the
+// expression it was called on. If a type cannot be inferred, a SemanticException is thrown
+// with the offending token and a message. Otherwise, each method annotates the corresponding
+// parse tree node with the type (to be used by the code generator). The inferred type is returned
+// to the caller because the expression may be part of a larger one whose type depends on it.
 class ExpressionChecker extends NotCBaseVisitor<Type> {
     private SymbolTable symTab;
 
@@ -39,13 +37,15 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     }
 
     // Utility function to check if an expression has some expected type
-    void expectType(ExpressionContext exp, Type expected) {
-        Type actual = exp.accept(this);
-        if (actual == expected ||
-            actual.isInt() && expected.isDouble()) { // Also acceptable
+    void expectType(ExpressionContext expr, Type expected) {
+        Type actual = expr.accept(this);
+        if (actual == expected) {
+            return;
+        } else if (actual.isInt() && expected.isDouble()) { // Also acceptable
+            expr.i2d = true; // int to double conversion
             return;
         }
-        throw new SemanticException(exp.getStart(),
+        throw new SemanticException(expr.getStart(),
                                     "Expression of type "
                                   + actual.name().toLowerCase()
                                   + " where expression of type "
@@ -57,39 +57,38 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     @Override
     public Type visitFalseLiteralExpression(FalseLiteralExpressionContext falseLitExpr) {
         falseLitExpr.type = Type.BOOL;
-        return Type.BOOL;
+        return falseLitExpr.type;
     }
 
     @Override
     public Type visitTrueLiteralExpression(TrueLiteralExpressionContext trueLitExpr) {
         trueLitExpr.type = Type.BOOL;
-        return Type.BOOL;
+        return trueLitExpr.type;
     }
 
     @Override
     public Type visitDoubleLiteralExpression(DoubleLiteralExpressionContext doubleLitExpr) {
         doubleLitExpr.type = Type.DOUBLE;
-        return Type.DOUBLE;
+        return doubleLitExpr.type;
     }
 
     @Override
     public Type visitIntLiteralExpression(IntLiteralExpressionContext intLitExpr) {
         intLitExpr.type = Type.INT;
-        return Type.INT;
+        return intLitExpr.type;
     }
 
     @Override
     public Type visitStringLiteralExpression(StringLiteralExpressionContext strLitExpr) {
         strLitExpr.type = Type.STRING;
-        return Type.STRING;
+        return strLitExpr.type;
     }
 
     // Variable: look its type up
     @Override
     public Type visitVariableExpression(VariableExpressionContext varExpr) {
-        Type type = symTab.lookupVar(varExpr.varId);
-        varExpr.type = type;
-        return type;
+        varExpr.type = symTab.lookupVar(varExpr.varId);
+        return varExpr.type;
     }
 
     // Check arity against number of arguments and parameter types against argument types
@@ -113,7 +112,7 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         Type declaredType = symTab.lookupVar(assExpr.varId);
         expectType(assExpr.rhs, declaredType);
         assExpr.type = declaredType;
-        return declaredType;
+        return assExpr.type;
     }
 
     // Arithmetic
@@ -125,10 +124,17 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
             throw new SemanticException(arithmExpr.getStart(),
                                         "Attempted arithmetic on non-numerical expression");
         }
-        if (t1.isDouble() || t2.isDouble())
-            return arithmExpr.type = Type.DOUBLE;
-        else
-            return arithmExpr.type = Type.INT;
+        if (t1.isDouble() || t2.isDouble()) {
+            // Check if an int to double conversion should occur for any operand
+            if (t1.isInt())
+                arithmExpr.opnd1.i2d = true;
+            if (t2.isInt())
+                arithmExpr.opnd2.i2d = true;
+            arithmExpr.type = Type.DOUBLE;
+        } else {
+            arithmExpr.type = Type.INT;
+        }
+        return arithmExpr.type;
     }
 
     // Utility function to infer and check increments and decrements
@@ -136,67 +142,62 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         Type t = symTab.lookupVar(varId);
         if (t.isNumerical())
             return t;
-        throw new SemanticException(varId,
-                                    "Attempted increment or decrement "
-                                  + "of variable that was not int or double");
+        throw new SemanticException(varId, "Attempted increment or decrement "
+                                         + "of variable that was not int or double");
     }
 
     // id "++" -> PostIncrExp
     @Override
     public Type visitPostIncrementExpression(PostIncrementExpressionContext postIncrExp) {
-        Type t = checkIncrDecr(postIncrExp.varId);
-        postIncrExp.type = t;
-        return t;
+        postIncrExp.type = checkIncrDecr(postIncrExp.varId);;
+        return postIncrExp.type;
     }
 
     // id "--" -> PostDecrExp
     @Override
     public Type visitPostDecrementExpression(PostDecrementExpressionContext postDecrExp) {
-        Type t = checkIncrDecr(postDecrExp.varId);
-        postDecrExp.type = t;
-        return t;
+        postDecrExp.type = checkIncrDecr(postDecrExp.varId);;
+        return postDecrExp.type;
     }
 
     // "++" id -> PreIncrExp
     @Override
     public Type visitPreIncrementExpression(PreIncrementExpressionContext preIncrExp) {
-        Type t = checkIncrDecr(preIncrExp.varId);
-        preIncrExp.type = t;
-        return t;
+        preIncrExp.type = checkIncrDecr(preIncrExp.varId);
+        return preIncrExp.type;
     }
 
     // "--" id -> PreDecrExp
     @Override
     public Type visitPreDecrementExpression(PreDecrementExpressionContext preDecrExp) {
-        Type t = checkIncrDecr(preDecrExp.varId);
-        preDecrExp.type = t;
-        return t;
+        preDecrExp.type = checkIncrDecr(preDecrExp.varId);
+        return preDecrExp.type;
     }
 
-    // Check comparisons: <, > <=, >=, ==, !=
-    // Type bool is not numerical as in C,
-    // but its values have the relation true > false.
+    // Numerical comparisons: <, > <=, >=, ==, !=
     public Type visitComparisonExpression(ComparisonExpressionContext compExpr) {
         Type t1 = compExpr.opnd1.accept(this);
         Type t2 = compExpr.opnd2.accept(this);
-        if (t1.isNumerical() && t2.isNumerical() || t1.isBool() && t2.isBool()) {
-            compExpr.type = Type.BOOL;
-            return Type.BOOL;
+        if (!t1.isNumerical() || !t2.isNumerical())
+            throw new SemanticException(compExpr.getStart(), "Ill-typed boolean expression");
+        if (t1.isDouble() || t2.isDouble()) {
+            if (t1.isInt())
+                compExpr.opnd1.i2d = true;
+            if (t2.isInt())
+                compExpr.opnd2.i2d = true;
         }
-        throw new SemanticException(compExpr.getStart(),
-                                    "Ill-typed boolean expression");
+        compExpr.type = Type.BOOL;
+        return compExpr.type;
     }
 
     @Override
     public Type visitAndOrExpression(AndOrExpressionContext andOrExpr) {
         Type t1 = andOrExpr.opnd1.accept(this);
         Type t2 = andOrExpr.opnd2.accept(this);
-        if (!t1.isBool() || !t2.isBool()) {
-                throw new SemanticException(andOrExpr.getStart(),
-                                            "Ill-typed boolean expression");
-        }
+        if (!t1.isBool() || !t2.isBool())
+            throw new SemanticException(andOrExpr.getStart(), "Ill-typed boolean expression");
         andOrExpr.type = Type.BOOL;
-        return Type.BOOL;
+        return andOrExpr.type;
     }
 
     @Override
