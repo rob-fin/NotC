@@ -1,0 +1,14 @@
+// When an int to double widening conversion occurs at a return statement expression,
+// dreturn should be generated in spite of the expression being int-valued
+
+double double_from_int_lit() {
+    return 18;
+}
+
+double double_from_int_var() {
+    int i = 34;
+    return i;
+}
+
+void main() {
+}

@@ -140,11 +140,11 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         }
         _return.expr.accept(exprGen);
         Type returnedType = _return.expr.type;
-        if (returnedType.isDouble())
+        if (returnedType.isDouble() || _return.expr.i2d)
             targetMethod.addInstruction("    dreturn", -2);
         else if (returnedType.isString())
             targetMethod.addInstruction("    areturn", -1);
-        else // ints, bools
+        else // Non-converted ints, bools
             targetMethod.addInstruction("    ireturn", -1);
         return null;
     }
