@@ -1,0 +1,26 @@
+void main() {
+    int i = 23;
+    i++;
+    printInt(i);
+    ++i;
+    printInt(i);
+
+
+    // Behavior around zero
+
+    int j = -2;
+    j++;
+    printInt(j);
+    j++;
+    printInt(j);
+    j++;
+    printInt(j);
+
+    int k = -2;
+    ++k;
+    printInt(k);
+    ++k;
+    printInt(k);
+    ++k;
+    printInt(k);
+}

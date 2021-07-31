@@ -1,0 +1,39 @@
+// Varying prefix and postfix versions of expressions
+// to verify that they are evaluated correctly
+
+void main() {
+    int i, j, k;
+
+    i = 1;
+    j = 2;
+    k = 3;
+    printInt(++i * j++ * k++);
+
+    i = 1;
+    j = 2;
+    k = 3;
+    printInt(i++ * ++j * k++);
+
+    i = 1;
+    j = 2;
+    k = 3;
+    printInt(i++ * j++ * ++k);
+
+
+    double d1, d2, d3;
+
+    d1 = 1.0;
+    d2 = 1.0;
+    d3 = 0.0;
+    printInt(++d1 * d2++ * d3++ > 0.0);
+
+    d1 = 1.0;
+    d2 = 1.0;
+    d3 = 0.0;
+    printInt(d1++ * ++d2 * d3++ > 0.0);
+
+    d1 = 1.0;
+    d2 = 1.0;
+    d3 = 0.0;
+    printInt(d1++ * d2++ * ++d3 > 0.0);
+}

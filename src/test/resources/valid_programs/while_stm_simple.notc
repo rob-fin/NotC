@@ -1,6 +1,5 @@
-// No output, just checks if the simplest generated while statement is valid
-
 void main() {
-    while (false) {
-    }
+    int i = 0;
+    while (i < 5)
+        printInt(++i);
 }

@@ -1,0 +1,26 @@
+void main() {
+    double d = 57.0;
+    d--;
+    printDouble(d);
+    --d;
+    printDouble(d);
+
+
+    // Behavior around zero
+
+    d = 1.0;
+    d--;
+    printDouble(d);
+    d--;
+    printDouble(d);
+    d--;
+    printDouble(d);
+
+    d = 1.0;
+    --d;
+    printDouble(d);
+    --d;
+    printDouble(d);
+    --d;
+    printDouble(d);
+}

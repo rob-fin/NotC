@@ -1,0 +1,19 @@
+// Expressions should evaluate to new values
+
+void main() {
+    int i, j;
+
+    i = 22;
+    j = ++i;
+    printInt(j);
+
+    i = 0;
+    j = --i;
+    printInt(j);
+
+    i = 4;
+    j = 6;
+    printInt(++i + ++j);
+    printInt(--i + --j);
+    printInt(++i - --j);
+}

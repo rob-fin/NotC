@@ -10,4 +10,7 @@ void main() {
 
     printInt(793.5 > 793);
     printInt(3 != 3.5);
+
+    double d = -0.5;
+    printDouble(1 + ++d);
 }

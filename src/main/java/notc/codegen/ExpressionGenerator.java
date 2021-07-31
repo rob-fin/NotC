@@ -13,9 +13,11 @@ import notc.antlrgen.NotCParser.VariableExpressionContext;
 import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
+import notc.antlrgen.NotCParser.IncrementDecrementExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 
 import org.antlr.v4.runtime.Token;
+import org.apache.commons.lang3.ObjectUtils;
 
 import java.util.Map;
 
@@ -168,6 +170,40 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
             case NotCParser.SUB:  return "sub";
             default:              return "";
         }
+    }
+
+    @Override
+    public Void visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
+        char typeSymbol;
+        String dupInstr;
+        int stackSpace;
+        if (incrDecrExpr.type.isInt()) {
+            typeSymbol = 'i';
+            dupInstr = "dup";
+            stackSpace = 1;
+        } else {
+            typeSymbol = 'd';
+            dupInstr = "dup2";
+            stackSpace = 2;
+        }
+        Token opTok = ObjectUtils.firstNonNull(incrDecrExpr.preOp, incrDecrExpr.postOp);
+        String operation;
+        if (opTok.getType() == NotCParser.INCR)
+            operation = "add";
+        else
+            operation = "sub";
+        int varAddr = targetMethod.lookupVar(incrDecrExpr.varId);
+        targetMethod.addInstruction(typeSymbol + "load " + varAddr, stackSpace);
+        if (incrDecrExpr.postOp != null)
+            targetMethod.addInstruction(dupInstr, stackSpace); // Leave previous value on stack
+        targetMethod.addInstruction(typeSymbol + "const_1", stackSpace);
+        targetMethod.addInstruction(typeSymbol + operation, -stackSpace);
+        if (incrDecrExpr.preOp != null)
+            targetMethod.addInstruction(dupInstr, stackSpace); // Leave new value on stack
+        targetMethod.addInstruction(typeSymbol + "store " + varAddr, -stackSpace);
+        if (incrDecrExpr.i2d)
+            targetMethod.addInstruction("    i2d", 1);
+        return null;
     }
 
     @Override

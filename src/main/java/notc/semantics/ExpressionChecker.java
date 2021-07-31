@@ -12,10 +12,7 @@ import notc.antlrgen.NotCParser.VariableExpressionContext;
 import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
-import notc.antlrgen.NotCParser.PostIncrementExpressionContext;
-import notc.antlrgen.NotCParser.PostDecrementExpressionContext;
-import notc.antlrgen.NotCParser.PreIncrementExpressionContext;
-import notc.antlrgen.NotCParser.PreDecrementExpressionContext;
+import notc.antlrgen.NotCParser.IncrementDecrementExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 import notc.antlrgen.NotCParser.AndOrExpressionContext;
 import notc.antlrgen.NotCParser.ParenthesizedExpressionContext;
@@ -137,41 +134,16 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         return arithmExpr.type;
     }
 
-    // Utility function to infer and check increments and decrements
-    private Type checkIncrDecr(Token varId) {
-        Type t = symTab.lookupVar(varId);
-        if (t.isNumerical())
-            return t;
-        throw new SemanticException(varId, "Attempted increment or decrement "
-                                         + "of variable that was not int or double");
-    }
-
-    // id "++" -> PostIncrExp
     @Override
-    public Type visitPostIncrementExpression(PostIncrementExpressionContext postIncrExp) {
-        postIncrExp.type = checkIncrDecr(postIncrExp.varId);;
-        return postIncrExp.type;
-    }
-
-    // id "--" -> PostDecrExp
-    @Override
-    public Type visitPostDecrementExpression(PostDecrementExpressionContext postDecrExp) {
-        postDecrExp.type = checkIncrDecr(postDecrExp.varId);;
-        return postDecrExp.type;
-    }
-
-    // "++" id -> PreIncrExp
-    @Override
-    public Type visitPreIncrementExpression(PreIncrementExpressionContext preIncrExp) {
-        preIncrExp.type = checkIncrDecr(preIncrExp.varId);
-        return preIncrExp.type;
-    }
-
-    // "--" id -> PreDecrExp
-    @Override
-    public Type visitPreDecrementExpression(PreDecrementExpressionContext preDecrExp) {
-        preDecrExp.type = checkIncrDecr(preDecrExp.varId);
-        return preDecrExp.type;
+    public Type visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
+        Type t = symTab.lookupVar(incrDecrExpr.varId);
+        if (t.isNumerical()) {
+            incrDecrExpr.type = t;
+            return incrDecrExpr.type;
+        }
+        throw new SemanticException(incrDecrExpr.varId,
+                                    "Attempted increment or decrement "
+                                  + "of variable that was not int or double");
     }
 
     // Numerical comparisons: <, > <=, >=, ==, !=

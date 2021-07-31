@@ -141,10 +141,10 @@ expression locals [Type type, boolean i2d]
     | value=STRING_LIT                                                            # StringLiteralExpression
     | varId=ID                                                                    # VariableExpression
     | id=ID LEFT_PAREN (args+=expression (COMMA args+=expression)*)? RIGHT_PAREN  # FunctionCallExpression
-    | varId=ID '++'                                                               # PostIncrementExpression
-    | varId=ID '--'                                                               # PostDecrementExpression
-    | '++' varId=ID                                                               # PreIncrementExpression
-    | '--' varId=ID                                                               # PreDecrementExpression
+    | (preOp=INCR varId=ID  |
+       varId=ID postOp=INCR |
+       preOp=DECR varId=ID  |
+       varId=ID postOp=DECR)                                                      # IncrementDecrementExpression
     | opnd1=expression op=(MUL | DIV | REM) opnd2=expression                      # ArithmeticExpression
     | opnd1=expression op=(ADD | SUB) opnd2=expression                            # ArithmeticExpression
     | opnd1=expression op=(LT | GT | GE | LE | EQ | NE) opnd2=expression          # ComparisonExpression
@@ -168,6 +168,9 @@ LEFT_BRACE  : '{' ;
 RIGHT_BRACE : '}' ;
 STM_TERM    : ';' ;
 ASSIGN      : '=' ;
+
+INCR : '++' ;
+DECR : '--' ;
 
 MUL : '*'  ;
 DIV : '/'  ;
