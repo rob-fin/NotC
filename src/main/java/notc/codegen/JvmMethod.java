@@ -46,7 +46,7 @@ class JvmMethod {
             stm.accept(stmGen);
         // Assembler requires all method bodies to end with return (language does not)
         if (funDef.returnType.isVoid())
-            method.addInstruction("    return", 0);
+            method.addInstruction("return", 0);
         return method;
     }
 
@@ -66,9 +66,9 @@ class JvmMethod {
         return "L" + nextLabel++;
     }
 
-    // Add an instruction to the output and update stack accordingly
+    // Add an instruction to the body and update stack accordingly
     void addInstruction(String instruction, int stackChange) {
-        body.appendln(instruction);
+        body.appendln("    " + instruction);
         currentStack += stackChange;
         maxStack = Math.max(maxStack, currentStack);
     }

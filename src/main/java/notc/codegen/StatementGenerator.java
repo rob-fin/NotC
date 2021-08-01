@@ -49,11 +49,11 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         int stackChange = 1;
         if (varType.isDouble()) {
             stackChange = 2;
-            storeInstr = "    dstore ";
+            storeInstr = "dstore ";
         } else if (varType.isString()) {
-            storeInstr = "    astore ";
+            storeInstr = "astore ";
         } else { // ints, bools
-            storeInstr = "    istore ";
+            storeInstr = "istore ";
         }
         int varAddr = targetMethod.lookupVar(initStm.varId);
         targetMethod.addInstruction(storeInstr + varAddr, stackChange);
@@ -69,9 +69,9 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         if (exprType.isVoid())
             return null; // Leaves nothing on the stack anyway
         else if (exprType.isDouble())
-            targetMethod.addInstruction("    pop2", -2);
+            targetMethod.addInstruction("pop2", -2);
         else // ints, bools, strings
-            targetMethod.addInstruction("    pop", -1);
+            targetMethod.addInstruction("pop", -1);
         return null;
     }
 
@@ -90,11 +90,11 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         String endLabel = targetMethod.newLabel();
         targetMethod.addInstruction(testLabel + ":", 0);
         _while.expr.accept(exprGen);
-        targetMethod.addInstruction("    ifeq " + endLabel, -1); // if tos is 0
+        targetMethod.addInstruction("ifeq " + endLabel, -1); // if tos is 0
         targetMethod.pushScope();
         _while.stm.accept(this);
         targetMethod.popScope();
-        targetMethod.addInstruction("    goto " + testLabel, 0);
+        targetMethod.addInstruction("goto " + testLabel, 0);
         targetMethod.addInstruction(endLabel + ":", 0);
         return null;
     }
@@ -119,11 +119,11 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         String falseLabel = targetMethod.newLabel();
         String trueLabel = targetMethod.newLabel();
         ifElse.expr.accept(exprGen);
-        targetMethod.addInstruction("    ifeq " + falseLabel, -1);
+        targetMethod.addInstruction("ifeq " + falseLabel, -1);
         targetMethod.pushScope();
         ifElse.stm1.accept(this);
         targetMethod.popScope();
-        targetMethod.addInstruction("    goto " + trueLabel, 0);
+        targetMethod.addInstruction("goto " + trueLabel, 0);
         targetMethod.addInstruction(falseLabel + ":", 0);
         targetMethod.pushScope();
         ifElse.stm2.accept(this);
@@ -135,17 +135,17 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitReturnStatement(ReturnStatementContext _return) {
         if (_return.expr == null) { // void return
-            targetMethod.addInstruction("    return", 0);
+            targetMethod.addInstruction("return", 0);
             return null;
         }
         _return.expr.accept(exprGen);
         Type returnedType = _return.expr.type;
         if (returnedType.isDouble() || _return.expr.i2d)
-            targetMethod.addInstruction("    dreturn", -2);
+            targetMethod.addInstruction("dreturn", -2);
         else if (returnedType.isString())
-            targetMethod.addInstruction("    areturn", -1);
+            targetMethod.addInstruction("areturn", -1);
         else // Non-converted ints, bools
-            targetMethod.addInstruction("    ireturn", -1);
+            targetMethod.addInstruction("ireturn", -1);
         return null;
     }
 }

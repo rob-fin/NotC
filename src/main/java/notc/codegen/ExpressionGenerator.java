@@ -39,36 +39,36 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Literals: instructions to put constant values on the stack
     @Override
     public Void visitFalseLiteralExpression(FalseLiteralExpressionContext falseLiteralExpr) {
-        targetMethod.addInstruction("    ldc 0", 1);
+        targetMethod.addInstruction("ldc 0", 1);
         return null;
     }
 
     @Override
     public Void visitTrueLiteralExpression(TrueLiteralExpressionContext trueLiteralExpr) {
-        targetMethod.addInstruction("    ldc 1", 1);
+        targetMethod.addInstruction("ldc 1", 1);
         return null;
     }
 
     @Override
     public Void visitDoubleLiteralExpression(DoubleLiteralExpressionContext doubleLiteralExpr) {
         String srcText = doubleLiteralExpr.value.getText();
-        targetMethod.addInstruction("    ldc2_w " + srcText, 2);
+        targetMethod.addInstruction("ldc2_w " + srcText, 2);
         return null;
     }
 
     @Override
     public Void visitIntLiteralExpression(IntLiteralExpressionContext intLitExpr) {
         String srcText = intLitExpr.value.getText();
-        targetMethod.addInstruction("    ldc " + srcText, 1);
+        targetMethod.addInstruction("ldc " + srcText, 1);
         if (intLitExpr.i2d) // int to double conversion
-            targetMethod.addInstruction("    i2d", 1);
+            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
     @Override
     public Void visitStringLiteralExpression(StringLiteralExpressionContext strLiteralExpr) {
         String srcText = strLiteralExpr.value.getText();
-        targetMethod.addInstruction("    ldc " + srcText, 1);
+        targetMethod.addInstruction("ldc " + srcText, 1);
         return null;
     }
 
@@ -78,13 +78,13 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         Type varType = varExpr.type;
         int varAddr = targetMethod.lookupVar(varExpr.varId);
         if (varType.isDouble())
-            targetMethod.addInstruction("    dload " + varAddr, 2);
+            targetMethod.addInstruction("dload " + varAddr, 2);
         else if (varType.isString())
-            targetMethod.addInstruction("    aload " + varAddr, 1);
+            targetMethod.addInstruction("aload " + varAddr, 1);
         else
-            targetMethod.addInstruction("    iload " + varAddr, 1);
+            targetMethod.addInstruction("iload " + varAddr, 1);
         if (varExpr.i2d)
-            targetMethod.addInstruction("    i2d", 1);
+            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -109,11 +109,11 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         else if (!returnType.isVoid())
             returnStackSize = 1;
 
-        String invocation = "    invokestatic " + methodSymTab.get(funCallExpr.id.getText());
-                                          // Arguments are popped, return value is pushed
+        String invocation = "invokestatic " + methodSymTab.get(funCallExpr.id.getText());
+                                                // Arguments are popped, return value is pushed
         targetMethod.addInstruction(invocation, returnStackSize - argStackSize);
         if (funCallExpr.i2d)
-            targetMethod.addInstruction("    i2d", 1);
+            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -126,23 +126,23 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         String dupInstr;
         int stackSpace;
         if (assExpr.type.isDouble()) {
-            storeInstr = "    dstore ";
-            dupInstr   = "    dup2";
+            storeInstr = "dstore ";
+            dupInstr   = "dup2";
             stackSpace = 2;
         } else if (assExpr.type.isString()) {
-            storeInstr = "    astore ";
-            dupInstr   = "    dup";
+            storeInstr = "astore ";
+            dupInstr   = "dup";
             stackSpace = 1;
         } else { // ints, bools
-            storeInstr = "    istore ";
-            dupInstr   = "    dup";
+            storeInstr = "istore ";
+            dupInstr   = "dup";
             stackSpace = 1;
         }
         // Stored value is value of expression and is left on stack
         targetMethod.addInstruction(dupInstr, stackSpace);
         targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
         if (assExpr.i2d)
-            targetMethod.addInstruction("    i2d", 1);
+            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -154,11 +154,11 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         arithmExpr.opnd2.accept(this);
         String operation = operationByToken(arithmExpr.op);
         if (arithmExpr.type.isInt()) // stack: i i -> i
-            targetMethod.addInstruction("    i" + operation, -1);
+            targetMethod.addInstruction("i" + operation, -1);
         else // stack: d d -> d
-            targetMethod.addInstruction("    d" + operation, -2);
+            targetMethod.addInstruction("d" + operation, -2);
         if (arithmExpr.i2d)
-            targetMethod.addInstruction("    i2d", 1);
+            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -203,7 +203,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
             targetMethod.addInstruction(dupInstr, stackSpace); // Leave new value on stack
         targetMethod.addInstruction(typeSymbol + "store " + varAddr, -stackSpace);
         if (incrDecrExpr.i2d)
-            targetMethod.addInstruction("    i2d", 1);
+            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -239,11 +239,11 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
             case NotCParser.NE:  op = "ne";
                                  break;
         }
-        targetMethod.addInstruction("    if_icmp" + op + " " + trueLabel, -2);
-        targetMethod.addInstruction("    iconst_0", 1); // false
-        targetMethod.addInstruction("    goto " + endLabel, 0);
+        targetMethod.addInstruction("if_icmp" + op + " " + trueLabel, -2);
+        targetMethod.addInstruction("iconst_0", 1); // false
+        targetMethod.addInstruction("goto " + endLabel, 0);
         targetMethod.addInstruction(trueLabel + ":", 0);
-        targetMethod.addInstruction("    iconst_1", 1); // true
+        targetMethod.addInstruction("iconst_1", 1); // true
         targetMethod.addInstruction(endLabel + ":", 0);
     }
 
@@ -251,44 +251,44 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         String trueLabel = targetMethod.newLabel();
         String falseLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        targetMethod.addInstruction("    dcmpg", -3); // stack: d d -> i
+        targetMethod.addInstruction("dcmpg", -3); // stack: d d -> i
         switch (compExpr.op.getType()) {
             case NotCParser.LT:  // a < b -> TOS = -1
-                                 targetMethod.addInstruction("    iconst_m1", 1);
-                                 targetMethod.addInstruction("    if_icmpeq " + trueLabel, -2);
-                                 targetMethod.addInstruction("    goto " + falseLabel, 0);
+                                 targetMethod.addInstruction("iconst_m1", 1);
+                                 targetMethod.addInstruction("if_icmpeq " + trueLabel, -2);
+                                 targetMethod.addInstruction("goto " + falseLabel, 0);
                                  break;
             case NotCParser.GT:  // a > b -> TOS = 1
-                                 targetMethod.addInstruction("    iconst_1", 1);
-                                 targetMethod.addInstruction("    if_icmpeq " + trueLabel, -2);
-                                 targetMethod.addInstruction("    goto " + falseLabel, 0);
+                                 targetMethod.addInstruction("iconst_1", 1);
+                                 targetMethod.addInstruction("if_icmpeq " + trueLabel, -2);
+                                 targetMethod.addInstruction("goto " + falseLabel, 0);
                                  break;
             case NotCParser.GE:  // a >= b -> TOS != -1
-                                 targetMethod.addInstruction("    iconst_m1", 1);
-                                 targetMethod.addInstruction("    if_icmpeq " + falseLabel, -2);
-                                 targetMethod.addInstruction("    goto " + trueLabel, 0);
+                                 targetMethod.addInstruction("iconst_m1", 1);
+                                 targetMethod.addInstruction("if_icmpeq " + falseLabel, -2);
+                                 targetMethod.addInstruction("goto " + trueLabel, 0);
                                  break;
             case NotCParser.LE:  // a <= b -> TOS != 1
-                                 targetMethod.addInstruction("    iconst_1", 1);
-                                 targetMethod.addInstruction("    if_icmpeq " + falseLabel, -2);
-                                 targetMethod.addInstruction("    goto " + trueLabel, 0);
+                                 targetMethod.addInstruction("iconst_1", 1);
+                                 targetMethod.addInstruction("if_icmpeq " + falseLabel, -2);
+                                 targetMethod.addInstruction("goto " + trueLabel, 0);
                                  break;
             case NotCParser.EQ:  // a = b -> TOS = 0
-                                 targetMethod.addInstruction("    iconst_0", 1);
-                                 targetMethod.addInstruction("    if_icmpeq " + trueLabel, -2);
-                                 targetMethod.addInstruction("    goto " + falseLabel, 0);
+                                 targetMethod.addInstruction("iconst_0", 1);
+                                 targetMethod.addInstruction("if_icmpeq " + trueLabel, -2);
+                                 targetMethod.addInstruction("goto " + falseLabel, 0);
                                  break;
             case NotCParser.NE:  // a != b -> TOS != 0
-                                 targetMethod.addInstruction("    iconst_0", 1);
-                                 targetMethod.addInstruction("    if_icmpeq " + falseLabel, -2);
-                                 targetMethod.addInstruction("    goto " + trueLabel, 0);
+                                 targetMethod.addInstruction("iconst_0", 1);
+                                 targetMethod.addInstruction("if_icmpeq " + falseLabel, -2);
+                                 targetMethod.addInstruction("goto " + trueLabel, 0);
                                  break;
         }
         targetMethod.addInstruction(trueLabel + ":", 0);
-        targetMethod.addInstruction("    iconst_1", 1);
-        targetMethod.addInstruction("    goto " + endLabel, 0);
+        targetMethod.addInstruction("iconst_1", 1);
+        targetMethod.addInstruction("goto " + endLabel, 0);
         targetMethod.addInstruction(falseLabel + ":", 0);
-        targetMethod.addInstruction("    iconst_0", 1);
+        targetMethod.addInstruction("iconst_0", 1);
         targetMethod.addInstruction(endLabel + ":", 0);
     }
 
@@ -297,20 +297,20 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     public Void visitAndOrExpression(AndOrExpressionContext andOrExpr) {
         String operation;
         if (andOrExpr.op.getType() == NotCParser.AND)
-            operation = "    iand";
+            operation = "iand";
         else
-            operation = "    ior";
+            operation = "ior";
         String falseLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
         // Put operands on stack
         andOrExpr.opnd1.accept(this);
         andOrExpr.opnd2.accept(this);
         targetMethod.addInstruction(operation, -1); // Stack: i i -> i
-        targetMethod.addInstruction("    ifeq " + falseLabel, -1);
-        targetMethod.addInstruction("    iconst_1", 1);
-        targetMethod.addInstruction("    goto " + endLabel, 0);
+        targetMethod.addInstruction("ifeq " + falseLabel, -1);
+        targetMethod.addInstruction("iconst_1", 1);
+        targetMethod.addInstruction("goto " + endLabel, 0);
         targetMethod.addInstruction(falseLabel + ":", 0);
-        targetMethod.addInstruction("    iconst_0", 1);
+        targetMethod.addInstruction("iconst_0", 1);
         targetMethod.addInstruction(endLabel + ":", 0);
         return null;
     }
