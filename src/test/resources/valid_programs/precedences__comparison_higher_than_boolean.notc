@@ -1,0 +1,6 @@
+void main() {
+    printInt(false && false == false);
+    printInt(false && true != true);
+    printInt(true || false == false);
+    printInt(true || true != true);
+}

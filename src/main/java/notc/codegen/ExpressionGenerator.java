@@ -15,6 +15,7 @@ import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.IncrementDecrementExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
+import notc.antlrgen.NotCParser.AndOrExpressionContext;
 
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.ObjectUtils;
@@ -289,6 +290,29 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         targetMethod.addInstruction(falseLabel + ":", 0);
         targetMethod.addInstruction("    iconst_0", 1);
         targetMethod.addInstruction(endLabel + ":", 0);
+    }
+
+    // Use bitwise and/or on operands and check if result is 0
+    @Override
+    public Void visitAndOrExpression(AndOrExpressionContext andOrExpr) {
+        String operation;
+        if (andOrExpr.op.getType() == NotCParser.AND)
+            operation = "    iand";
+        else
+            operation = "    ior";
+        String falseLabel = targetMethod.newLabel();
+        String endLabel = targetMethod.newLabel();
+        // Put operands on stack
+        andOrExpr.opnd1.accept(this);
+        andOrExpr.opnd2.accept(this);
+        targetMethod.addInstruction(operation, -1); // Stack: i i -> i
+        targetMethod.addInstruction("    ifeq " + falseLabel, -1);
+        targetMethod.addInstruction("    iconst_1", 1);
+        targetMethod.addInstruction("    goto " + endLabel, 0);
+        targetMethod.addInstruction(falseLabel + ":", 0);
+        targetMethod.addInstruction("    iconst_0", 1);
+        targetMethod.addInstruction(endLabel + ":", 0);
+        return null;
     }
 
 }

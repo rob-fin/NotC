@@ -1,0 +1,10 @@
+void main() {
+    printInt(false && false);
+    printInt(false && true);
+    printInt(true  && false);
+    printInt(true  && true);
+    printInt(true  && true  && true  && true);
+    printInt(false && false && false && false);
+    printInt(true  && true  && false && true);
+    printInt(false && true  && false && false);
+}
