@@ -1,8 +1,8 @@
 package notc.codegen;
 
+import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser;
 import notc.antlrgen.NotCParser.Type;
-import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.ExpressionContext;
 import notc.antlrgen.NotCParser.FalseLiteralExpressionContext;
 import notc.antlrgen.NotCParser.TrueLiteralExpressionContext;
@@ -11,11 +11,11 @@ import notc.antlrgen.NotCParser.IntLiteralExpressionContext;
 import notc.antlrgen.NotCParser.StringLiteralExpressionContext;
 import notc.antlrgen.NotCParser.VariableExpressionContext;
 import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
-import notc.antlrgen.NotCParser.AssignmentExpressionContext;
-import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.IncrementDecrementExpressionContext;
+import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 import notc.antlrgen.NotCParser.AndOrExpressionContext;
+import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.ObjectUtils;
@@ -117,62 +117,6 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return null;
     }
 
-    // Assignments
-    @Override
-    public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
-        assExpr.rhs.accept(this); // Expression on the right of = goes on stack
-        int varAddr = targetMethod.lookupVar(assExpr.varId);
-        String storeInstr;
-        String dupInstr;
-        int stackSpace;
-        if (assExpr.type.isDouble()) {
-            storeInstr = "dstore ";
-            dupInstr   = "dup2";
-            stackSpace = 2;
-        } else if (assExpr.type.isString()) {
-            storeInstr = "astore ";
-            dupInstr   = "dup";
-            stackSpace = 1;
-        } else { // ints, bools
-            storeInstr = "istore ";
-            dupInstr   = "dup";
-            stackSpace = 1;
-        }
-        // Stored value is value of expression and is left on stack
-        targetMethod.addInstruction(dupInstr, stackSpace);
-        targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
-        if (assExpr.i2d)
-            targetMethod.addInstruction("i2d", 1);
-        return null;
-    }
-
-    // +, -, *, /, %
-    @Override
-    public Void visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
-        // Generate operands
-        arithmExpr.opnd1.accept(this);
-        arithmExpr.opnd2.accept(this);
-        String operation = operationByToken(arithmExpr.op);
-        if (arithmExpr.type.isInt()) // stack: i i -> i
-            targetMethod.addInstruction("i" + operation, -1);
-        else // stack: d d -> d
-            targetMethod.addInstruction("d" + operation, -2);
-        if (arithmExpr.i2d)
-            targetMethod.addInstruction("i2d", 1);
-        return null;
-    }
-
-    private String operationByToken(Token opTok) {
-        switch (opTok.getType()) {
-            case NotCParser.MUL:  return "mul";
-            case NotCParser.DIV:  return "div";
-            case NotCParser.REM:  return "rem";
-            case NotCParser.ADD:  return "add";
-            case NotCParser.SUB:  return "sub";
-            default:              return "";
-        }
-    }
-
     @Override
     public Void visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
         char typeSymbol;
@@ -205,6 +149,33 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         if (incrDecrExpr.i2d)
             targetMethod.addInstruction("i2d", 1);
         return null;
+    }
+
+    // +, -, *, /, %
+    @Override
+    public Void visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
+        // Generate operands
+        arithmExpr.opnd1.accept(this);
+        arithmExpr.opnd2.accept(this);
+        String operation = operationByToken(arithmExpr.op);
+        if (arithmExpr.type.isInt()) // stack: i i -> i
+            targetMethod.addInstruction("i" + operation, -1);
+        else // stack: d d -> d
+            targetMethod.addInstruction("d" + operation, -2);
+        if (arithmExpr.i2d)
+            targetMethod.addInstruction("i2d", 1);
+        return null;
+    }
+
+    private String operationByToken(Token opTok) {
+        switch (opTok.getType()) {
+            case NotCParser.MUL:  return "mul";
+            case NotCParser.DIV:  return "div";
+            case NotCParser.REM:  return "rem";
+            case NotCParser.ADD:  return "add";
+            case NotCParser.SUB:  return "sub";
+            default:              return "";
+        }
     }
 
     @Override
@@ -312,6 +283,35 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         targetMethod.addInstruction(falseLabel + ":", 0);
         targetMethod.addInstruction("iconst_0", 1);
         targetMethod.addInstruction(endLabel + ":", 0);
+        return null;
+    }
+
+    // Assignments
+    @Override
+    public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
+        assExpr.rhs.accept(this); // Expression on the right of = goes on stack
+        int varAddr = targetMethod.lookupVar(assExpr.varId);
+        String storeInstr;
+        String dupInstr;
+        int stackSpace;
+        if (assExpr.type.isDouble()) {
+            storeInstr = "dstore ";
+            dupInstr   = "dup2";
+            stackSpace = 2;
+        } else if (assExpr.type.isString()) {
+            storeInstr = "astore ";
+            dupInstr   = "dup";
+            stackSpace = 1;
+        } else { // ints, bools
+            storeInstr = "istore ";
+            dupInstr   = "dup";
+            stackSpace = 1;
+        }
+        // Stored value is value of expression and is left on stack
+        targetMethod.addInstruction(dupInstr, stackSpace);
+        targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
+        if (assExpr.i2d)
+            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 

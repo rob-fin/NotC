@@ -10,11 +10,11 @@ import notc.antlrgen.NotCParser.IntLiteralExpressionContext;
 import notc.antlrgen.NotCParser.StringLiteralExpressionContext;
 import notc.antlrgen.NotCParser.VariableExpressionContext;
 import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
-import notc.antlrgen.NotCParser.AssignmentExpressionContext;
-import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.IncrementDecrementExpressionContext;
+import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 import notc.antlrgen.NotCParser.AndOrExpressionContext;
+import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.ParenthesizedExpressionContext;
 
 import org.antlr.v4.runtime.Token;
@@ -22,10 +22,10 @@ import org.antlr.v4.runtime.Token;
 import java.util.List;
 
 // Visitor that type checks expressions. Each visit method tries to infer the type of the
-// expression it was called on. If a type cannot be inferred, a SemanticException is thrown
-// with the offending token and a message. Otherwise, each method annotates the corresponding
-// parse tree node with the type (to be used by the code generator). The inferred type is returned
-// to the caller because the expression may be part of a larger one whose type depends on it.
+// expression it was called on. If a type cannot be inferred, a SemanticException is thrown with
+// the offending token and a message. Otherwise, each method annotates the corresponding parse
+// tree node with the type (to be used by the code generator). The inferred type is returned to the
+// caller because the expression may be a subexpression of another one whose type depends on it.
 class ExpressionChecker extends NotCBaseVisitor<Type> {
     private SymbolTable symTab;
 
@@ -103,13 +103,16 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         return signature.returnType();
     }
 
-    // Expression to the right of = must be inferable to the variable's declared type
     @Override
-    public Type visitAssignmentExpression(AssignmentExpressionContext assExpr) {
-        Type declaredType = symTab.lookupVar(assExpr.varId);
-        expectType(assExpr.rhs, declaredType);
-        assExpr.type = declaredType;
-        return assExpr.type;
+    public Type visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
+        Type t = symTab.lookupVar(incrDecrExpr.varId);
+        if (t.isNumerical()) {
+            incrDecrExpr.type = t;
+            return incrDecrExpr.type;
+        }
+        throw new SemanticException(incrDecrExpr.varId,
+                                    "Attempted increment or decrement "
+                                  + "of variable that was not int or double");
     }
 
     // Arithmetic
@@ -132,18 +135,6 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
             arithmExpr.type = Type.INT;
         }
         return arithmExpr.type;
-    }
-
-    @Override
-    public Type visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
-        Type t = symTab.lookupVar(incrDecrExpr.varId);
-        if (t.isNumerical()) {
-            incrDecrExpr.type = t;
-            return incrDecrExpr.type;
-        }
-        throw new SemanticException(incrDecrExpr.varId,
-                                    "Attempted increment or decrement "
-                                  + "of variable that was not int or double");
     }
 
     // Numerical comparisons: <, > <=, >=, ==, !=
@@ -170,6 +161,15 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
             throw new SemanticException(andOrExpr.getStart(), "Ill-typed boolean expression");
         andOrExpr.type = Type.BOOL;
         return andOrExpr.type;
+    }
+
+    // Expression to the right of = must be inferable to the variable's declared type
+    @Override
+    public Type visitAssignmentExpression(AssignmentExpressionContext assExpr) {
+        Type declaredType = symTab.lookupVar(assExpr.varId);
+        expectType(assExpr.rhs, declaredType);
+        assExpr.type = declaredType;
+        return assExpr.type;
     }
 
     @Override
