@@ -148,7 +148,8 @@ expression locals [Type type, boolean i2d]
     | opnd1=expression op=(MUL | DIV | REM) opnd2=expression                      # ArithmeticExpression
     | opnd1=expression op=(ADD | SUB) opnd2=expression                            # ArithmeticExpression
     | opnd1=expression op=(LT | GT | GE | LE | EQ | NE) opnd2=expression          # ComparisonExpression
-    | opnd1=expression op=(AND | OR) opnd2=expression                             # AndOrExpression
+    | opnd1=expression op=AND opnd2=expression                                    # AndOrExpression
+    | opnd1=expression op=OR  opnd2=expression                                    # AndOrExpression
     | varId=ID ASSIGN rhs=expression                                              # AssignmentExpression
     ;
 
