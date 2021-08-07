@@ -44,7 +44,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         Type varType = initStm.typeDeclaration.type;
         targetMethod.addVar(initStm.varId, varType);
         // Generate its initializing expression
-        initStm.expr.accept(exprGen);
+        exprGen.generate(initStm.expr);
         String storeInstr;
         int stackChange = 1;
         if (varType.isDouble()) {
@@ -63,8 +63,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
     // Expression used as statement
     @Override
     public Void visitExpressionStatement(ExpressionStatementContext exprStm) {
-        exprStm.expr.accept(exprGen); // Generate it
-        Type exprType = exprStm.expr.type;
+        Type exprType = exprGen.generate(exprStm.expr);
         // Value is not used and should be popped
         if (exprType.isVoid())
             return null; // Leaves nothing on the stack anyway
@@ -89,7 +88,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         String testLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
         targetMethod.addInstruction(testLabel + ":", 0);
-        _while.expr.accept(exprGen);
+        exprGen.generate(_while.expr);
         targetMethod.addInstruction("ifeq " + endLabel, -1); // if tos is 0
         targetMethod.pushScope();
         _while.stm.accept(this);
@@ -103,7 +102,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
     public Void visitIfStatement(IfStatementContext _if) {
         String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        _if.expr.accept(exprGen);
+        exprGen.generate(_if.expr);
         targetMethod.addInstruction("ifne " + trueLabel, -1);
         targetMethod.addInstruction("goto " + endLabel, 0);
         targetMethod.addInstruction(trueLabel + ":", 0);
@@ -118,7 +117,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
     public Void visitIfElseStatement(IfElseStatementContext ifElse) {
         String falseLabel = targetMethod.newLabel();
         String trueLabel = targetMethod.newLabel();
-        ifElse.expr.accept(exprGen);
+        exprGen.generate(ifElse.expr);
         targetMethod.addInstruction("ifeq " + falseLabel, -1);
         targetMethod.pushScope();
         ifElse.stm1.accept(this);
@@ -138,9 +137,8 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
             targetMethod.addInstruction("return", 0);
             return null;
         }
-        _return.expr.accept(exprGen);
-        Type returnedType = _return.expr.type;
-        if (returnedType.isDouble() || _return.expr.i2d)
+        Type returnedType = exprGen.generate(_return.expr);
+        if (returnedType.isDouble())
             targetMethod.addInstruction("dreturn", -2);
         else if (returnedType.isString())
             targetMethod.addInstruction("areturn", -1);

@@ -1,0 +1,14 @@
+double double_fun() {
+    return -1.5;
+}
+
+void main() {
+    printInt(123.456);
+    printInt(double_fun());
+
+    double d;
+    printInt(d = 0.875);
+    printInt(d);
+    printInt(++d);
+    printDouble(d); // Fractional part should still be there
+}

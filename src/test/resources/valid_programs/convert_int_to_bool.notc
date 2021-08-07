@@ -1,0 +1,23 @@
+void main() {
+    bool b;
+    // Check that nonzero values are saved as 1
+    b = 10;
+    printInt(b);
+    b = -10;
+    printInt(b);
+    b = 0;
+    printInt(b);
+
+    // Check that the assignment expressions themselves evaluate to bool values
+    printInt( (b = -921) + (b = 63) ); // 1 + 1
+
+    // Nonzero should mean true
+    if (4555)
+        printInt(1);
+
+    if (-241)
+        printInt(1);
+
+    if (0)
+        printInt(0);
+}

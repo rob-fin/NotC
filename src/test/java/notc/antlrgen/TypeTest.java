@@ -74,4 +74,61 @@ class TypeTest {
         assertFalse(Type.VOID.isNumerical());
     }
 
+    @Test
+    void Conversion_IntIsConvertibleToDouble() {
+        assertTrue(Type.INT.isConvertibleTo(Type.DOUBLE));
+    }
+
+    @Test
+    void Conversion_IntIsConvertibleToBool() {
+        assertTrue(Type.INT.isConvertibleTo(Type.BOOL));
+    }
+
+    @Test
+    void Conversion_DoubleIsConvertibleToBool() {
+        assertTrue(Type.DOUBLE.isConvertibleTo(Type.BOOL));
+    }
+
+    @Test
+    void Conversion_DoubleIsConvertibleToInt() {
+        assertTrue(Type.DOUBLE.isConvertibleTo(Type.INT));
+    }
+
+    @Test
+    void Conversion_BoolIsConvertibleToInt() {
+        assertTrue(Type.BOOL.isConvertibleTo(Type.INT));
+    }
+
+    @Test
+    void Conversion_BoolIsConvertibleToDouble() {
+        assertTrue(Type.BOOL.isConvertibleTo(Type.DOUBLE));
+    }
+
+    @Test
+    void Conversion_BoolIsNotConvertibleToString() {
+        assertFalse(Type.BOOL.isConvertibleTo(Type.STRING));
+    }
+
+    @Test
+    void Conversion_DoubleIsNotConvertibleToVoid() {
+        assertFalse(Type.DOUBLE.isConvertibleTo(Type.VOID));
+    }
+
+    @Test
+    void Conversion_VoidNotConvertible() {
+        assertFalse(Type.VOID.isConvertibleTo(Type.STRING));
+        assertFalse(Type.VOID.isConvertibleTo(Type.BOOL));
+        assertFalse(Type.VOID.isConvertibleTo(Type.DOUBLE));
+        assertFalse(Type.VOID.isConvertibleTo(Type.INT));
+    }
+
+    @Test
+    void Conversion_StringNotConvertible() {
+        assertFalse(Type.STRING.isConvertibleTo(Type.VOID));
+        assertFalse(Type.STRING.isConvertibleTo(Type.BOOL));
+        assertFalse(Type.STRING.isConvertibleTo(Type.DOUBLE));
+        assertFalse(Type.STRING.isConvertibleTo(Type.INT));
+    }
+
 }
+

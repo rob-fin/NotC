@@ -6,18 +6,24 @@ grammar NotC;
 @parser::header {
 import com.google.common.collect.Lists;
 import java.util.List;
+import java.util.Set;
 }
 
 @parser::members {
     // Enum representing the different types in the language.
     // Injected among the ANTLR-generated abstract syntax classes
-    // and used instead of TypeContexts in the compiler components.
+    // and used instead of the generated TypeContexts
+    // in the tree's type annotations.
     public enum Type {
-        BOOL,
         STRING,
         VOID,
+        DOUBLE,
         INT,
-        DOUBLE;
+        BOOL;
+
+        private static final Set<Type> CONVERTIBLES = Set.of(
+            BOOL, DOUBLE, INT
+        );
 
         public boolean isBool() {
             return compareTo(BOOL) == 0;
@@ -31,16 +37,20 @@ import java.util.List;
             return compareTo(VOID) == 0;
         }
 
-        public boolean isInt() {
-            return compareTo(INT) == 0;
+        public boolean isNumerical() {
+            return compareTo(DOUBLE) >= 0;
         }
 
         public boolean isDouble() {
             return compareTo(DOUBLE) == 0;
         }
 
-        public boolean isNumerical() {
-            return compareTo(INT) >= 0;
+        public boolean isInt() {
+            return compareTo(INT) == 0;
+        }
+
+        public boolean isConvertibleTo(Type t) {
+            return CONVERTIBLES.contains(this) && CONVERTIBLES.contains(t);
         }
 
         // Resolves abstract syntax types to instances
@@ -107,7 +117,7 @@ functionDefinition locals [Type returnType, List<Type> paramTypes]
       LEFT_BRACE body+=statement* RIGHT_BRACE
     ;
 
-// Match type tokens in a parser rule so that the Type enum can be set
+// Matches type tokens in a parser rule so that the Type enum can be used for static annotations
 typeToken locals [Type type]
 @after {
     $ctx.type = Type.resolve($ctx);
@@ -130,9 +140,9 @@ statement
     | 'if' LEFT_PAREN expr=expression RIGHT_PAREN stm1=statement 'else' stm2=statement  # IfElseStatement
     ;
 
-// The type annotation is set during semantic analysis,
-// as is a flag that denotes that a widening primitive conversion (int to double) occurs
-expression locals [Type type, boolean i2d]
+// The type annotation is inferred and set during semantic analysis,
+// as is a flag that denotes whether a widening primitive conversion should occur (e.g. ints used as doubles)
+expression locals [Type type, Type runtimeConversion]
     : LEFT_PAREN expr=expression RIGHT_PAREN                                      # ParenthesizedExpression
     | 'false'                                                                     # FalseLiteralExpression
     | 'true'                                                                      # TrueLiteralExpression

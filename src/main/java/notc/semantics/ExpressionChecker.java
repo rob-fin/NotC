@@ -33,13 +33,17 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         this.symTab = symTab;
     }
 
-    // Utility function to check if an expression has some expected type
+    Type typeAnnotate(ExpressionContext expr, Type t) {
+        expr.type = t;
+        return t;
+    }
+
+    // Utility to check if an expression has some expected type
     void expectType(ExpressionContext expr, Type expected) {
         Type actual = expr.accept(this);
-        if (actual == expected) {
-            return;
-        } else if (actual.isInt() && expected.isDouble()) { // Also acceptable
-            expr.i2d = true; // int to double conversion
+        if (actual == expected) return;
+        if (actual.isConvertibleTo(expected)) {
+            expr.runtimeConversion = expected;
             return;
         }
         throw new SemanticException(expr.getStart(),
@@ -53,104 +57,88 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     // Literal expressions simply have the type of the literal
     @Override
     public Type visitFalseLiteralExpression(FalseLiteralExpressionContext falseLitExpr) {
-        falseLitExpr.type = Type.BOOL;
-        return falseLitExpr.type;
+        return typeAnnotate(falseLitExpr, Type.BOOL);
     }
 
     @Override
     public Type visitTrueLiteralExpression(TrueLiteralExpressionContext trueLitExpr) {
-        trueLitExpr.type = Type.BOOL;
-        return trueLitExpr.type;
+        return typeAnnotate(trueLitExpr, Type.BOOL);
     }
 
     @Override
     public Type visitDoubleLiteralExpression(DoubleLiteralExpressionContext doubleLitExpr) {
-        doubleLitExpr.type = Type.DOUBLE;
-        return doubleLitExpr.type;
+        return typeAnnotate(doubleLitExpr, Type.DOUBLE);
     }
 
     @Override
     public Type visitIntLiteralExpression(IntLiteralExpressionContext intLitExpr) {
-        intLitExpr.type = Type.INT;
-        return intLitExpr.type;
+        return typeAnnotate(intLitExpr, Type.INT);
     }
 
     @Override
     public Type visitStringLiteralExpression(StringLiteralExpressionContext strLitExpr) {
-        strLitExpr.type = Type.STRING;
-        return strLitExpr.type;
+        return typeAnnotate(strLitExpr, Type.STRING);
     }
 
-    // Variable: look its type up
+    // Look up declared type
     @Override
     public Type visitVariableExpression(VariableExpressionContext varExpr) {
-        varExpr.type = symTab.lookupVar(varExpr.varId);
-        return varExpr.type;
+        return typeAnnotate(varExpr, symTab.lookupVar(varExpr.varId));
     }
 
     // Check arity against number of arguments and parameter types against argument types
     @Override
-    public Type visitFunctionCallExpression(FunctionCallExpressionContext funCall) {
-        FunctionType signature = symTab.lookupFun(funCall.id);
-        if (signature.arity() != funCall.args.size()) {
-            throw new SemanticException(funCall.getStart(),
+    public Type visitFunctionCallExpression(FunctionCallExpressionContext funCallExpr) {
+        FunctionType signature = symTab.lookupFun(funCallExpr.id);
+        if (signature.arity() != funCallExpr.args.size()) {
+            throw new SemanticException(funCallExpr.getStart(),
                                         "Wrong number of arguments in function call");
         }
         int i = 0;
         for (Type t : signature.paramTypes())
-            expectType(funCall.args.get(i++), t);
-        funCall.type = signature.returnType();
-        return signature.returnType();
+            expectType(funCallExpr.args.get(i++), t);
+        return typeAnnotate(funCallExpr, signature.returnType());
     }
 
     @Override
     public Type visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
         Type t = symTab.lookupVar(incrDecrExpr.varId);
-        if (t.isNumerical()) {
-            incrDecrExpr.type = t;
-            return incrDecrExpr.type;
-        }
+        if (t.isNumerical())
+            return typeAnnotate(incrDecrExpr, t);
         throw new SemanticException(incrDecrExpr.varId,
                                     "Attempted increment or decrement "
                                   + "of variable that was not int or double");
     }
 
-    // Arithmetic
+    // Utility for type checking arithmetic and comparison expressions
+    private Type checkBinaryNumerical(ExpressionContext opnd1, ExpressionContext opnd2) {
+        Type opnd1Type = opnd1.accept(this);
+        Type opnd2Type = opnd2.accept(this);
+        if (!opnd1Type.isNumerical() || !opnd2Type.isNumerical()) {
+            throw new SemanticException(opnd1.getParent().getStart(),
+                                        "Binary operation expects numerical operands");
+        }
+        // Both operands should be generated as the largest type
+        Type mostGeneralType = opnd1Type.compareTo(opnd2Type) < 0 ? opnd1Type : opnd2Type;
+        if (opnd1Type != mostGeneralType)
+            opnd1.runtimeConversion = mostGeneralType;
+        if (opnd2Type != mostGeneralType)
+            opnd2.runtimeConversion = mostGeneralType;
+        return mostGeneralType;
+    }
+
+    // +, -, *, /, %
     @Override
     public Type visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
-        Type t1 = arithmExpr.opnd1.accept(this);
-        Type t2 = arithmExpr.opnd2.accept(this);
-        if (!t1.isNumerical() || !t2.isNumerical()) {
-            throw new SemanticException(arithmExpr.getStart(),
-                                        "Attempted arithmetic on non-numerical expression");
-        }
-        if (t1.isDouble() || t2.isDouble()) {
-            // Check if an int to double conversion should occur for any operand
-            if (t1.isInt())
-                arithmExpr.opnd1.i2d = true;
-            if (t2.isInt())
-                arithmExpr.opnd2.i2d = true;
-            arithmExpr.type = Type.DOUBLE;
-        } else {
-            arithmExpr.type = Type.INT;
-        }
-        return arithmExpr.type;
+        Type overallType = checkBinaryNumerical(arithmExpr.opnd1, arithmExpr.opnd2);
+        return typeAnnotate(arithmExpr, overallType);
     }
 
     // Numerical comparisons: <, > <=, >=, ==, !=
+    @Override
     public Type visitComparisonExpression(ComparisonExpressionContext compExpr) {
-        Type t1 = compExpr.opnd1.accept(this);
-        Type t2 = compExpr.opnd2.accept(this);
-        if (!t1.isNumerical() || !t2.isNumerical())
-            throw new SemanticException(compExpr.getStart(), "Ill-typed boolean expression");
-        if (t1.isDouble() || t2.isDouble()) {
-            if (t1.isInt())
-                compExpr.opnd1.i2d = true;
-            if (t2.isInt())
-                compExpr.opnd2.i2d = true;
-        }
-        compExpr.type = Type.BOOL;
-        return compExpr.type;
+        checkBinaryNumerical(compExpr.opnd1, compExpr.opnd2);
+        return typeAnnotate(compExpr, Type.BOOL);
     }
 
     @Override
@@ -159,8 +147,7 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         Type t2 = andOrExpr.opnd2.accept(this);
         if (!t1.isBool() || !t2.isBool())
             throw new SemanticException(andOrExpr.getStart(), "Ill-typed boolean expression");
-        andOrExpr.type = Type.BOOL;
-        return andOrExpr.type;
+        return typeAnnotate(andOrExpr, Type.BOOL);
     }
 
     // Expression to the right of = must be inferable to the variable's declared type
@@ -168,15 +155,13 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     public Type visitAssignmentExpression(AssignmentExpressionContext assExpr) {
         Type declaredType = symTab.lookupVar(assExpr.varId);
         expectType(assExpr.rhs, declaredType);
-        assExpr.type = declaredType;
-        return assExpr.type;
+        return typeAnnotate(assExpr, declaredType);
     }
 
     @Override
     public Type visitParenthesizedExpression(ParenthesizedExpressionContext paren) {
         Type t = paren.expr.accept(this);
-        paren.type = t;
-        return t;
+        return typeAnnotate(paren, t);
     }
 
 }

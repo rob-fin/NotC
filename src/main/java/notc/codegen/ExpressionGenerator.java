@@ -36,6 +36,50 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return instance;
     }
 
+    // Common entry point.
+    // Performs any necessary conversion of the type the expression evaluates to.
+    // Returns the runtime type of the expression.
+    Type generate(ExpressionContext expr) {
+        if (expr == null)
+            return Type.VOID;
+        expr.accept(this);
+        if (expr.runtimeConversion == null)
+            return expr.type;
+
+        Type from = expr.type;
+        Type to = expr.runtimeConversion;
+        if (to.isDouble())
+            targetMethod.addInstruction("i2d", 1); // Widens
+        else if (from.isDouble() && to.isInt())
+            targetMethod.addInstruction("d2i", -1); // Truncates
+        else if (!to.isBool())
+            ; // Nothing else to do
+        else if (from.isInt())
+            intToBool();
+        else
+            doubleToBool();
+
+        return to;
+    }
+    // Converts a double at the top of the stack to 0 or 1
+    private void doubleToBool() {
+        // 0.0 -> 0,  nonzero double -> nonzero int
+        targetMethod.addInstruction("ldc2_w 0.0", 2);
+        targetMethod.addInstruction("dcmpg", -1);
+
+        intToBool();
+    }
+
+    // Converts a nonzero int at the top of the stack to 1
+    private void intToBool() {
+        // (value | -value) >> 31
+        targetMethod.addInstruction("dup", 1);
+        targetMethod.addInstruction("ineg", 0);
+        targetMethod.addInstruction("ior", -1);
+        targetMethod.addInstruction("ldc 31", 1);
+        targetMethod.addInstruction("iushr", -1);
+    }
+
     // Literals: instructions to put constant values on the stack
     @Override
     public Void visitFalseLiteralExpression(FalseLiteralExpressionContext falseLiteralExpr) {
@@ -60,8 +104,6 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     public Void visitIntLiteralExpression(IntLiteralExpressionContext intLitExpr) {
         String srcText = intLitExpr.value.getText();
         targetMethod.addInstruction("ldc " + srcText, 1);
-        if (intLitExpr.i2d) // int to double conversion
-            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -83,8 +125,6 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
             targetMethod.addInstruction("aload " + varAddr, 1);
         else
             targetMethod.addInstruction("iload " + varAddr, 1);
-        if (varExpr.i2d)
-            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -94,8 +134,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         // Put all arguments on stack and calculate their size
         int argStackSize = 0;
         for (ExpressionContext arg : funCallExpr.args) {
-            arg.accept(this);
-            if (arg.type.isDouble())
+            if (generate(arg).isDouble())
                 argStackSize += 2;
             else
                 argStackSize += 1; // int, bool, string
@@ -112,8 +151,6 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         String invocation = "invokestatic " + methodSymTab.get(funCallExpr.id.getText());
                                                 // Arguments are popped, return value is pushed
         targetMethod.addInstruction(invocation, returnStackSize - argStackSize);
-        if (funCallExpr.i2d)
-            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -146,8 +183,6 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         if (incrDecrExpr.preOp != null)
             targetMethod.addInstruction(dupInstr, stackSpace); // Leave new value on stack
         targetMethod.addInstruction(typeSymbol + "store " + varAddr, -stackSpace);
-        if (incrDecrExpr.i2d)
-            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -155,15 +190,13 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
         // Generate operands
-        arithmExpr.opnd1.accept(this);
-        arithmExpr.opnd2.accept(this);
+        generate(arithmExpr.opnd1);
+        generate(arithmExpr.opnd2);
         String operation = operationByToken(arithmExpr.op);
         if (arithmExpr.type.isInt()) // stack: i i -> i
             targetMethod.addInstruction("i" + operation, -1);
         else // stack: d d -> d
             targetMethod.addInstruction("d" + operation, -2);
-        if (arithmExpr.i2d)
-            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
@@ -181,10 +214,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitComparisonExpression(ComparisonExpressionContext compExpr) {
         // Put operands on stack
-        compExpr.opnd1.accept(this);
-        compExpr.opnd2.accept(this);
-        Type t1 = compExpr.opnd1.type;
-        Type t2 = compExpr.opnd2.type;
+        generate(compExpr.opnd1);
+        generate(compExpr.opnd2);
         if (compExpr.opnd1.type.isDouble() || compExpr.opnd2.type.isDouble())
             generateDoubleComparison(compExpr);
         else
@@ -274,8 +305,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         String falseLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
         // Put operands on stack
-        andOrExpr.opnd1.accept(this);
-        andOrExpr.opnd2.accept(this);
+        generate(andOrExpr.opnd1);
+        generate(andOrExpr.opnd2);
         targetMethod.addInstruction(operation, -1); // Stack: i i -> i
         targetMethod.addInstruction("ifeq " + falseLabel, -1);
         targetMethod.addInstruction("iconst_1", 1);
@@ -289,7 +320,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Assignments
     @Override
     public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
-        assExpr.rhs.accept(this); // Expression on the right of = goes on stack
+        generate(assExpr.rhs); // Expression on the right of = goes on stack
         int varAddr = targetMethod.lookupVar(assExpr.varId);
         String storeInstr;
         String dupInstr;
@@ -310,8 +341,6 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         // Stored value is value of expression and is left on stack
         targetMethod.addInstruction(dupInstr, stackSpace);
         targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
-        if (assExpr.i2d)
-            targetMethod.addInstruction("i2d", 1);
         return null;
     }
 
