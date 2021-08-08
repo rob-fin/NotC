@@ -2,6 +2,7 @@ package notc.semantics;
 
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.Signature;
 import notc.antlrgen.NotCParser.ExpressionContext;
 import notc.antlrgen.NotCParser.FalseLiteralExpressionContext;
 import notc.antlrgen.NotCParser.TrueLiteralExpressionContext;
@@ -89,7 +90,7 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     // Check arity against number of arguments and parameter types against argument types
     @Override
     public Type visitFunctionCallExpression(FunctionCallExpressionContext funCallExpr) {
-        FunctionType signature = symTab.lookupFun(funCallExpr.id);
+        Signature signature = symTab.lookupFun(funCallExpr.id);
         if (signature.arity() != funCallExpr.args.size()) {
             throw new SemanticException(funCallExpr.getStart(),
                                         "Wrong number of arguments in function call");

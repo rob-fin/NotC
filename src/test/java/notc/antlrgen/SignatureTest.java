@@ -1,6 +1,7 @@
-package notc.semantics;
+package notc.antlrgen;
 
 import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.Signature;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -8,11 +9,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
-public class FunctionTypeTest {
+public class SignatureTest {
 
     @Test
     void EmptyParamList_Arity0AndReturnEmptyList() {
-        FunctionType funType = new FunctionType(null, List.of());
+        Signature funType = new Signature(null, List.of());
         assertEquals(0, funType.arity());
         assertTrue(funType.paramTypes().isEmpty());
     }
@@ -20,7 +21,7 @@ public class FunctionTypeTest {
     @Test
     void OneIntParam_Arity1AndReturnListWithOneInt() {
         Type paramType = Type.INT;
-        FunctionType funType = new FunctionType(null, List.of(paramType));
+        Signature funType = new Signature(null, List.of(paramType));
         assertEquals(1, funType.arity());
         List<Type> returnedParamTypeList = funType.paramTypes();
         assertEquals(1, returnedParamTypeList.size());
@@ -37,14 +38,14 @@ public class FunctionTypeTest {
                                             Type.STRING,
                                             Type.INT,
                                             Type.INT);
-        FunctionType funType = new FunctionType(null, paramTypesInit);
+        Signature funType = new Signature(null, paramTypesInit);
         List<Type> returnedParamTypes = funType.paramTypes();
         assertTrue(paramTypesInit.equals(returnedParamTypes));
     }
 
     @Test
     void VoidReturnType_ReturnVoid() {
-        FunctionType funType = new FunctionType(Type.VOID, null);
+        Signature funType = new Signature(Type.VOID, null);
         assertEquals(Type.VOID, funType.returnType());
     }
 

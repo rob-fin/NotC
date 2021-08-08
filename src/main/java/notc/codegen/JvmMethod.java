@@ -36,16 +36,16 @@ class JvmMethod {
         JvmMethod method = new JvmMethod(JvmSpec);
         // Add paramters as local variables
         method.pushScope();
-        int paramListLen = funDef.paramTypes.size();
+        int paramListLen = funDef.signature.paramTypes().size();
         // (Guaranteed by parser to be of same length)
         for (int i = 0; i < paramListLen; i++)
-            method.addVar(funDef.paramIds.get(i), funDef.paramTypes.get(i));
+            method.addVar(funDef.paramIds.get(i), funDef.signature.paramTypes().get(i));
         StatementGenerator stmGen = StatementGenerator.withTarget(method);
         // Generate the statements
         for (StatementContext stm : funDef.body)
             stm.accept(stmGen);
         // Assembler requires all method bodies to end with return (language does not)
-        if (funDef.returnType.isVoid())
+        if (funDef.signature.returnType().isVoid())
             method.addInstruction("return", 0);
         return method;
     }

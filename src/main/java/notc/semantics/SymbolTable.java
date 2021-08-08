@@ -1,6 +1,7 @@
 package notc.semantics;
 
 import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.Signature;
 
 import org.antlr.v4.runtime.Token;
 
@@ -15,28 +16,28 @@ import java.util.HashMap;
 class SymbolTable {
 
     // Functions
-    private HashMap<String,FunctionType> signatures;
+    private HashMap<String,Signature> signatures;
     // Variables (a stack for scoping)
     private ArrayDeque<Map<String,Type>> variables;
 
     SymbolTable() {
-        signatures = new HashMap<String,FunctionType>();
+        signatures = new HashMap<String,Signature>();
         variables = new ArrayDeque<Map<String,Type>>();
         // Add signatures of built-in functions
-        signatures.put("printInt",    new FunctionType(Type.VOID,   List.of(Type.INT)));
-        signatures.put("printDouble", new FunctionType(Type.VOID,   List.of(Type.DOUBLE)));
-        signatures.put("printString", new FunctionType(Type.VOID,   List.of(Type.STRING)));
-        signatures.put("readInt",     new FunctionType(Type.INT,    Collections.emptyList()));
-        signatures.put("readDouble",  new FunctionType(Type.DOUBLE, Collections.emptyList()));
-        signatures.put("readString",  new FunctionType(Type.STRING, Collections.emptyList()));
+        signatures.put("printInt",    new Signature(Type.VOID,   List.of(Type.INT)));
+        signatures.put("printDouble", new Signature(Type.VOID,   List.of(Type.DOUBLE)));
+        signatures.put("printString", new Signature(Type.VOID,   List.of(Type.STRING)));
+        signatures.put("readInt",     new Signature(Type.INT,    Collections.emptyList()));
+        signatures.put("readDouble",  new Signature(Type.DOUBLE, Collections.emptyList()));
+        signatures.put("readString",  new Signature(Type.STRING, Collections.emptyList()));
     }
 
     // Called in a first pass through the program to add all function declarations
-    void addFun(Token idTok, FunctionType funType) {
+    void addFun(Token idTok, Signature signature) {
         String funId = idTok.getText();
         if (signatures.containsKey(funId))
             throw new SemanticException(idTok, "Redefinition of function");
-        signatures.put(funId, funType);
+        signatures.put(funId, signature);
     }
 
     // When a function body is to be checked, add its parameters as local variables.
@@ -82,8 +83,8 @@ class SymbolTable {
     }
 
     // Used when type checking function calls
-    FunctionType lookupFun(Token idTok) {
-        FunctionType signature = signatures.get(idTok.getText());
+    Signature lookupFun(Token idTok) {
+        Signature signature = signatures.get(idTok.getText());
         if (signature != null)
             return signature;
         throw new SemanticException(idTok, "Undefined function");

@@ -3,17 +3,18 @@ grammar NotC;
 
 /* Type patch */
 
+// Convenience classes for the language's types.
+// Injected among the ANTLR-generated abstract syntax classes
+// and used instead of the generated TypeContexts
+// in the tree's type annotations.
 @parser::header {
 import com.google.common.collect.Lists;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 }
 
 @parser::members {
-    // Enum representing the different types in the language.
-    // Injected among the ANTLR-generated abstract syntax classes
-    // and used instead of the generated TypeContexts
-    // in the tree's type annotations.
     public enum Type {
         STRING,
         VOID,
@@ -93,6 +94,29 @@ import java.util.Set;
             }
         }
     }
+
+
+    public static class Signature {
+        private List<Type> paramTypes;
+        private Type returnType;
+
+        public Signature(Type returnType, List<Type> paramTypes) {
+            this.returnType = returnType;
+            this.paramTypes = paramTypes;
+        }
+
+        public int arity() {
+            return paramTypes.size();
+        }
+
+        public List<Type> paramTypes() {
+            return Collections.unmodifiableList(paramTypes);
+        }
+
+        public Type returnType() {
+            return returnType;
+        }
+    }
 }
 
 
@@ -103,17 +127,18 @@ program
     : funDefs+=functionDefinition* EOF
     ;
 
-// Function definition: type, name, parameter list, body
-// Saves type signature in context object's annotation fields when parsing
-functionDefinition locals [Type returnType, List<Type> paramTypes]
+// Function definition: type, name, parameter list, body.
+// Saves static type annotation in context object when parsing.
+functionDefinition locals [Signature signature]
 @after {
-    $ctx.returnType = $ctx.readReturnType.type;
-    $ctx.paramTypes = Lists.transform($ctx.readParamTypes, t -> t.type);
+    Type returnType = $ctx.parsedReturn.type;
+    List<Type> paramTypes = Lists.transform($ctx.parsedParamTypes, t -> t.type);
+    $ctx.signature = new Signature(returnType, paramTypes);
 }
     :
-      readReturnType=typeToken
+      parsedReturn=typeToken
       id=ID
-      LEFT_PAREN (readParamTypes+=typeToken paramIds+=ID (COMMA readParamTypes+=typeToken paramIds+=ID)*)? RIGHT_PAREN
+      LEFT_PAREN (parsedParamTypes+=typeToken paramIds+=ID (COMMA parsedParamTypes+=typeToken paramIds+=ID)*)? RIGHT_PAREN
       LEFT_BRACE body+=statement* RIGHT_BRACE
     ;
 
@@ -140,15 +165,14 @@ statement
     | 'if' LEFT_PAREN expr=expression RIGHT_PAREN stm1=statement 'else' stm2=statement  # IfElseStatement
     ;
 
-// The type annotation is inferred and set during semantic analysis,
-// as is a flag that denotes whether a widening primitive conversion should occur (e.g. ints used as doubles)
+// The types of expressions are inferred during semantic analysis
 expression locals [Type type, Type runtimeConversion]
     : LEFT_PAREN expr=expression RIGHT_PAREN                                      # ParenthesizedExpression
     | 'false'                                                                     # FalseLiteralExpression
     | 'true'                                                                      # TrueLiteralExpression
-    | value=DOUBLE_LIT                                                            # DoubleLiteralExpression
-    | value=INT_LIT                                                               # IntLiteralExpression
-    | value=STRING_LIT                                                            # StringLiteralExpression
+    | value=DOUBLE_LITERAL                                                        # DoubleLiteralExpression
+    | value=INT_LITERAL                                                           # IntLiteralExpression
+    | value=STRING_LITERAL                                                        # StringLiteralExpression
     | varId=ID                                                                    # VariableExpression
     | id=ID LEFT_PAREN (args+=expression (COMMA args+=expression)*)? RIGHT_PAREN  # FunctionCallExpression
     | (preOp=INCR varId=ID  |
@@ -200,13 +224,13 @@ OR  : '||' ;
 
 ID  : LETTER (LETTER | DIGIT | '_')* ;
 
-DOUBLE_LIT : '-'? (DIGIT+ '.' DIGIT+ | '.' DIGIT+) ;
+DOUBLE_LITERAL : '-'? (DIGIT+ '.' DIGIT+ | '.' DIGIT+) ;
 
-INT_LIT : '-'? DIGIT+ ;
+INT_LITERAL : '-'? DIGIT+ ;
 
 DIGIT : [0-9] ;
 
-STRING_LIT : '"' (~["\n])* '"' ;
+STRING_LITERAL : '"' (~["\n])* '"' ;
 
 LETTER : [A-Za-z] ;
 

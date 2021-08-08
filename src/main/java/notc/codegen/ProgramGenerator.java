@@ -54,9 +54,9 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         for (FunctionDefinitionContext funDef : prog.funDefs) {
             String funId = funDef.id.getText();
             StringBuilder sb = new StringBuilder(funId + "(");
-            for (Type t : funDef.paramTypes)
+            for (Type t : funDef.signature.paramTypes())
                 sb.append(JvmTypeSymbol(t));
-            sb.append(")" + JvmTypeSymbol(funDef.returnType));
+            sb.append(")" + JvmTypeSymbol(funDef.signature.returnType()));
             String methodSpec = sb.toString();
             String qualifiedMethod = className + "/" + methodSpec;
             methodSymTab.put(funId, qualifiedMethod);

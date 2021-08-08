@@ -3,6 +3,7 @@ package notc.semantics;
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser;
 import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.Signature;
 import notc.antlrgen.NotCParser.ProgramContext;
 import notc.antlrgen.NotCParser.FunctionDefinitionContext;
 
@@ -21,14 +22,11 @@ public class ProgramChecker extends NotCBaseVisitor<Void> {
         SymbolTable symTab = new SymbolTable();
 
         // Populate symbol table with functions
-        for (FunctionDefinitionContext funDef : prog.funDefs) {
-            Type returnType = funDef.returnType;
-            FunctionType signature = new FunctionType(returnType, funDef.paramTypes);
-            symTab.addFun(funDef.id, signature);
-        }
+        for (FunctionDefinitionContext funDef : prog.funDefs)
+            symTab.addFun(funDef.id, funDef.signature);
 
         // Check that main is present and ok
-        FunctionType mainType = symTab.lookupFun(new CommonToken(NotCParser.ID, "main"));
+        Signature mainType = symTab.lookupFun(new CommonToken(NotCParser.ID, "main"));
         if (mainType.arity() != 0)
             throw new SemanticException("Non-empty parameter list in function main");
         Type mainReturn = mainType.returnType();

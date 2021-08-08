@@ -2,6 +2,7 @@ package notc.semantics;
 
 import notc.antlrgen.NotCParser;
 import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.Signature;
 
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.CommonToken;
@@ -31,8 +32,8 @@ class SymbolTableTest {
         List<Type> paramTypes = List.of(Type.INT,
                                         Type.BOOL,
                                         Type.STRING);
-        symTab.addFun(funIdTok, new FunctionType(returnType, paramTypes));
-        FunctionType lookedUpFun = symTab.lookupFun(funIdTok);
+        symTab.addFun(funIdTok, new Signature(returnType, paramTypes));
+        Signature lookedUpFun = symTab.lookupFun(funIdTok);
         assertTrue(lookedUpFun.returnType() == returnType);
         assertTrue(paramTypes.equals(lookedUpFun.paramTypes()));
     }

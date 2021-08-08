@@ -2,6 +2,7 @@ package notc.semantics;
 
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.Signature;
 import notc.antlrgen.NotCParser.ExpressionContext;
 import notc.antlrgen.NotCParser.FunctionDefinitionContext;
 import notc.antlrgen.NotCParser.StatementContext;
@@ -31,7 +32,7 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
 
     // Entry point: Add parameters as local variables, then visit each statement
     void checkDefinition(FunctionDefinitionContext funDef) {
-        FunctionType signature = symTab.lookupFun(funDef.id);
+        Signature signature = symTab.lookupFun(funDef.id);
         symTab.setContext(signature.paramTypes(), funDef.paramIds);
         expectedReturn = signature.returnType();
         for (StatementContext stm : funDef.body)
