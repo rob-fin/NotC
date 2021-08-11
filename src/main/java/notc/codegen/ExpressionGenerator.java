@@ -148,7 +148,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         else if (!returnType.isVoid())
             returnStackSize = 1;
 
-        String invocation = "invokestatic " + methodSymTab.get(funCallExpr.id.getText());
+        String invocation = "invokestatic Method " + methodSymTab.get(funCallExpr.id.getText());
                                                 // Arguments are popped, return value is pushed
         targetMethod.addInstruction(invocation, returnStackSize - argStackSize);
         return null;

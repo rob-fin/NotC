@@ -5,14 +5,11 @@ plugins {
 
 repositories {
     mavenCentral()
-    maven {
-        url = 'https://repo.clojars.org/'
-    }
 }
 
 dependencies {
     antlr 'org.antlr:antlr4:4.9.2'
-    implementation 'jasmin:jasmin:2.4'
+    implementation 'org.openjdk.asmtools:asmtools-core:7.0.b10-ea'
     implementation 'org.apache.commons:commons-lang3:3.12.0'
     implementation 'org.apache.commons:commons-text:1.9'
     implementation 'commons-cli:commons-cli:1.4'

@@ -7,7 +7,6 @@ import notc.antlrgen.NotCParser.Type;
 
 import org.antlr.v4.runtime.tree.ParseTreeProperty;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.TextStringBuilder;
 
 import java.util.Map;
@@ -27,53 +26,52 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
     @Override
     public String visitProgram(ProgramContext prog) {
         TextStringBuilder finalOutput = new TextStringBuilder();
+        finalOutput.appendln("super public class " + className + "{");
 
         // Load resource containing the language's built-in functions
-        // implemented as methods in Jasmin assembly. They become part of the class.
+        // implemented as methods in Jasm assembly. They become part of the class.
         // Also contains JVM entry point main, which calls the generated main.
         ClassLoader classLoader = getClass().getClassLoader();
-        try (InputStream is = classLoader.getResourceAsStream("boilerplate.j")) {
-            String boilerplate = IOUtils.toString(is, StandardCharsets.UTF_8);
-            finalOutput.append(StringUtils.replace(boilerplate, "$CLASSNAME$", className));
+        try (InputStream is = classLoader.getResourceAsStream("boilerplate.jasm")) {
+            finalOutput.appendln(IOUtils.toString(is, StandardCharsets.UTF_8));
         } catch (IOException e) {
             throw new RuntimeException("No intention to handle", e);
         }
 
         // Put built-ins in a symbol table: id -> fully qualified JVM specification
         Map<String,String> methodSymTab = new HashMap<>();
-        methodSymTab.put("printInt",    className + "/printInt(I)V");
-        methodSymTab.put("readInt",     className + "/readInt()I");
-        methodSymTab.put("printDouble", className + "/printDouble(D)V");
-        methodSymTab.put("readDouble",  className + "/readDouble()D");
-        methodSymTab.put("printString", className + "/printString(Ljava/lang/String;)V");
-        methodSymTab.put("readString",  className + "/readString()Ljava/lang/String;");
-
-        ParseTreeProperty<String> JvmSpecs = new ParseTreeProperty<>();
+        methodSymTab.put("printInt",    "printInt:\"(I)V\"");
+        methodSymTab.put("readInt",     "readInt:\"()I\"");
+        methodSymTab.put("printDouble", "printDouble:\"(D)V\"");
+        methodSymTab.put("readDouble",  "readDouble:\"()D\"");
+        methodSymTab.put("printString", "printString:\"(Ljava/lang/String;)V\"");
+        methodSymTab.put("readString",  "readString:\"()Ljava/lang/String;\"");
 
         // Then add the functions defined by the program
         for (FunctionDefinitionContext funDef : prog.funDefs) {
             String funId = funDef.id.getText();
-            StringBuilder sb = new StringBuilder(funId + "(");
+            StringBuilder sb = new StringBuilder(funId + ":\"(");
             for (Type t : funDef.signature.paramTypes())
                 sb.append(JvmTypeSymbol(t));
-            sb.append(")" + JvmTypeSymbol(funDef.signature.returnType()));
+            sb.append(")" + JvmTypeSymbol(funDef.signature.returnType()) + "\"");
             String methodSpec = sb.toString();
-            String qualifiedMethod = className + "/" + methodSpec;
+            String qualifiedMethod = methodSpec;
             methodSymTab.put(funId, qualifiedMethod);
-            JvmSpecs.put(funDef, methodSpec); // Needed again when generating method headers
         }
 
-        // The symbol table for methods does not change and is only needed when generating
-        // function call expressions, so make it a class member of ExpressionGenerator.
+        // The symbol table for methods is needed when generating function
+        // call expressions, so make it a class member of ExpressionGenerator.
         ExpressionGenerator.setMethodSymTab(methodSymTab);
 
         // Generate JVM methods from the function definitions of the program
         for (FunctionDefinitionContext funDef : prog.funDefs) {
-            String spec = JvmSpecs.get(funDef);
+            String spec = methodSymTab.get(funDef.id.getText());
             JvmMethod method = JvmMethod.from(funDef, spec);
             TextStringBuilder methodOutput = method.collectCode();
-            finalOutput.append(methodOutput);
+            finalOutput.appendln(methodOutput);
         }
+
+        finalOutput.appendln("}");
 
         // Return assembly text
         return finalOutput.toString();

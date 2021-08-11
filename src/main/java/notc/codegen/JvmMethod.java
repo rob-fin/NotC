@@ -31,7 +31,7 @@ class JvmMethod {
 
     // Instantiates a model of a JVM method from:
     //  * A parse tree rooted at a function definition and
-    //  * A specification of its name and signature in JVM format
+    //  * A specification of its name and signature in Jasm assembly format
     static JvmMethod from(FunctionDefinitionContext funDef, String JvmSpec) {
         JvmMethod method = new JvmMethod(JvmSpec);
         // Add paramters as local variables
@@ -53,11 +53,11 @@ class JvmMethod {
     // After instantiating the class, this can be called to get the generated code
     TextStringBuilder collectCode() {
         TextStringBuilder methodDef = new TextStringBuilder();
-        methodDef.appendln(".method public static " + JvmSpec);
-        methodDef.appendln("    .limit locals " + nextVarAddr);
-        methodDef.appendln("    .limit stack " + maxStack);
+        methodDef.appendln(indent(1) + "public static Method " + JvmSpec);
+        methodDef.appendln(indent(2) + "stack " + maxStack + " locals " + nextVarAddr);
+        methodDef.appendln(indent(1) + "{");
         methodDef.appendln(body);
-        methodDef.appendln(".end method");
+        methodDef.appendln(indent(1) + "}");
         return methodDef;
     }
 
@@ -66,9 +66,16 @@ class JvmMethod {
         return "L" + nextLabel++;
     }
 
+    private String indent(int level) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < level; i++)
+            sb.append("    ");
+        return sb.toString();
+    }
+
     // Add an instruction to the body and update stack accordingly
     void addInstruction(String instruction, int stackChange) {
-        body.appendln("    " + instruction);
+        body.appendln(indent(2) + instruction + ";");
         currentStack += stackChange;
         maxStack = Math.max(maxStack, currentStack);
     }

@@ -33,7 +33,7 @@ import java.util.List;
 
 public class Main {
 
-    // Compiles a NotC program given by parameter srcFile to Jasmin assembly text,
+    // Compiles a NotC program given by parameter srcFile to Jasm assembly text,
     // defining a single class with a name given by parameter className
     private static String compile(Path srcFile, String className) {
         ParseTree tree = null;
@@ -62,31 +62,29 @@ public class Main {
         } catch (IOException e) {
             error(srcFile + ": No such file");
         }
-        // Input program is valid: Generate Jasmin assembly and return it
+        // Input program is valid: Generate Jasm assembly and return it
         return tree.accept(new ProgramGenerator(className));
     }
 
-    // Write Jasmin assembly to a temporary file and assemble it
-    private static void assemble(String jasminText, String outputDir) {
+    // Write Jasm assembly to a temporary file and assemble it
+    private static void assemble(String jasmText, String outputDir) {
         try {
-            File jasmFile = File.createTempFile("temp", "j");
+            File jasmFile = File.createTempFile("temp", "jasm");
             PrintWriter jasmWriter = new PrintWriter(jasmFile);
-            jasmWriter.print(jasminText);
+            jasmWriter.print(jasmText);
             jasmWriter.close();
-            // ...in a new process so we can avoid System.exit() and read exit status
             String javaBin = System.getProperty("java.home")
                            + File.separator + "bin"
                            + File.separator + "java";
             String classpath = System.getProperty("java.class.path");
             List<String> jasmCmd = List.of(javaBin, "-cp", classpath,
-                                           "jasmin.Main", "-d", outputDir,
+                                           "org.openjdk.asmtools.Main", "jasm",
+                                           "-d", outputDir,
                                            jasmFile.getAbsolutePath());
             Process proc = new ProcessBuilder(jasmCmd).inheritIO().start();
             if (proc.waitFor() != 0)
-                error("Assembly failed:", jasminText);
-        } catch (IOException e) {
-            throw new RuntimeException("No intention to handle", e);
-        } catch (InterruptedException e) {
+                error("Assembly failed:", jasmText);
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException("No intention to handle", e);
         }
     }
@@ -104,7 +102,7 @@ public class Main {
             .longOpt("class")
             .hasArg()
             .argName("name")
-            .desc("Name of generated class file. "
+            .desc("Name of generated class. "
                 + System.lineSeparator()
                 + "Defaults to base name of source file.")
             .build());
@@ -118,7 +116,7 @@ public class Main {
             .build());
         options.addOption(Option.builder("j")
             .longOpt("jasmin")
-            .desc("Also output intermediate Jasmin assembly representation.")
+            .desc("Also output intermediate Jasm assembly representation.")
             .build());
         options.addOption(Option.builder("h")
             .longOpt("help")
@@ -142,23 +140,24 @@ public class Main {
             System.exit(0);
         }
 
-        // After any options, what should be left on the command line is the source file argument
+        // What should be left is the source file argument
         String[] remainingCmdLine = cmd.getArgs();
         if (remainingCmdLine.length < 1)
             error("Missing source file argument");
         Path srcFile = Paths.get(remainingCmdLine[0]);
 
         String className = cmd.getOptionValue("c", MoreFiles.getNameWithoutExtension(srcFile));
-        if (!className.matches("[a-zA-Z_]+[a-zA-Z0-9_]*")) {
+        String legalClassName = "[a-zA-Z_]+[a-zA-Z0-9_]*";
+        if (!className.matches(legalClassName)) {
             error(className + ": Illegal class name",
                   "May contain letters, digits, and underscores, but not start with a digit");
         }
 
         String outputDir = cmd.getOptionValue("o", System.getProperty("user.dir"));
-        String jasminText = compile(srcFile, className);
+        String jasmText = compile(srcFile, className);
+        assemble(jasmText, outputDir);
         if (cmd.hasOption("j"))
-            System.out.println(jasminText);
-        assemble(jasminText, outputDir);
+            System.out.println(jasmText);
         System.exit(0);
     }
 
