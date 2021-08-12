@@ -4,6 +4,7 @@ import notc.antlrgen.NotCLexer;
 import notc.antlrgen.NotCParser;
 import notc.semantics.ProgramChecker;
 import notc.semantics.SemanticException;
+import notc.semantics.SymbolTable;
 import notc.codegen.ProgramGenerator;
 
 import org.antlr.v4.runtime.CharStream;
@@ -37,24 +38,25 @@ public class Main {
     // defining a single class with a name given by parameter className
     private static String compile(Path srcFile, String className) {
         ParseTree tree = null;
+        SymbolTable symTab = null;
         try {
             CharStream input = CharStreams.fromPath(srcFile);
             BailingErrorListener listener = new BailingErrorListener();
 
-            // Lex
+            // Lex and obtain tokens for the parser
             NotCLexer lexer = new NotCLexer(input);
             lexer.removeErrorListeners();
             lexer.addErrorListener(listener);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
 
-            // Parse
+            // Parse and optain AST for the later phases
             NotCParser parser = new NotCParser(tokens);
             parser.removeErrorListeners();
             parser.addErrorListener(listener);
             tree = parser.program();
 
-            // Perform semantic checks
-            tree.accept(new ProgramChecker());
+            // Perform semantic checks and obtain symbol table for the code generator
+            symTab = tree.accept(new ProgramChecker());
         } catch (ParseCancellationException e) {
             error("Syntax error:", e.getMessage());
         } catch (SemanticException e) {
@@ -63,7 +65,7 @@ public class Main {
             error(srcFile + ": No such file");
         }
         // Input program is valid: Generate Jasm assembly and return it
-        return tree.accept(new ProgramGenerator(className));
+        return tree.accept(new ProgramGenerator(symTab, className));
     }
 
     // Write Jasm assembly to a temporary file and assemble it
@@ -88,6 +90,7 @@ public class Main {
             throw new RuntimeException("No intention to handle", e);
         }
     }
+
     // Prints an error message and exits
     private static void error(String... messages) {
         System.err.println(String.join(System.lineSeparator(), messages));

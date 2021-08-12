@@ -11,6 +11,7 @@ import notc.antlrgen.NotCParser.WhileStatementContext;
 import notc.antlrgen.NotCParser.IfStatementContext;
 import notc.antlrgen.NotCParser.IfElseStatementContext;
 import notc.antlrgen.NotCParser.ReturnStatementContext;
+import notc.semantics.SymbolTable;
 
 import org.antlr.v4.runtime.Token;
 
@@ -18,16 +19,18 @@ import org.antlr.v4.runtime.Token;
 // Most instructions generated here do something with what's
 // put on the stack by the statements' constituent expressions.
 class StatementGenerator extends NotCBaseVisitor<Void> {
+    private SymbolTable symTab;
     private ExpressionGenerator exprGen;
     private JvmMethod targetMethod; // Generated code goes here
-    private static StatementGenerator instance = new StatementGenerator();
-    private StatementGenerator() {}
 
-    // Reuse same instance
-    static StatementGenerator withTarget(JvmMethod method) {
-        instance.targetMethod = method;
-        instance.exprGen = ExpressionGenerator.withTarget(method);
-        return instance;
+    StatementGenerator(SymbolTable symTab) {
+        this.symTab = symTab;
+        exprGen = new ExpressionGenerator(symTab);
+    }
+
+    void setTarget(JvmMethod targetMethod) {
+        this.targetMethod = targetMethod;
+        exprGen.setTarget(targetMethod);
     }
 
     @Override
@@ -45,18 +48,9 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         targetMethod.addVar(initStm.varId, varType);
         // Generate its initializing expression
         exprGen.generate(initStm.expr);
-        String storeInstr;
-        int stackChange = 1;
-        if (varType.isDouble()) {
-            stackChange = 2;
-            storeInstr = "dstore ";
-        } else if (varType.isString()) {
-            storeInstr = "astore ";
-        } else { // ints, bools
-            storeInstr = "istore ";
-        }
+        int stackChange = (varType.isDouble()) ? 2 : 1;
         int varAddr = targetMethod.lookupVar(initStm.varId);
-        targetMethod.addInstruction(storeInstr + varAddr, stackChange);
+        targetMethod.addInstruction(JvmFormatter.formatStore(varType) + varAddr, stackChange);
         return null;
     }
 

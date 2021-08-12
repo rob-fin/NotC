@@ -3,22 +3,22 @@ package notc.codegen;
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.ProgramContext;
 import notc.antlrgen.NotCParser.FunctionDefinitionContext;
-import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.StatementContext;
+import notc.semantics.SymbolTable;
 
-import org.antlr.v4.runtime.tree.ParseTreeProperty;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.text.TextStringBuilder;
 
-import java.util.Map;
-import java.util.HashMap;
 import java.io.InputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class ProgramGenerator extends NotCBaseVisitor<String> {
+    private SymbolTable symTab;
     private String className;
 
-    public ProgramGenerator(String className) {
+    public ProgramGenerator(SymbolTable symTab, String className) {
+        this.symTab = symTab;
         this.className = className;
     }
 
@@ -38,60 +38,31 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
             throw new RuntimeException("No intention to handle", e);
         }
 
-        // Put built-ins in a symbol table: id -> fully qualified JVM specification
-        Map<String,String> methodSymTab = new HashMap<>();
-        methodSymTab.put("printInt",    "printInt:\"(I)V\"");
-        methodSymTab.put("readInt",     "readInt:\"()I\"");
-        methodSymTab.put("printDouble", "printDouble:\"(D)V\"");
-        methodSymTab.put("readDouble",  "readDouble:\"()D\"");
-        methodSymTab.put("printString", "printString:\"(Ljava/lang/String;)V\"");
-        methodSymTab.put("readString",  "readString:\"()Ljava/lang/String;\"");
+        StatementGenerator stmGen = new StatementGenerator(symTab);
 
-        // Then add the functions defined by the program
+        // Generate JVM methods from parse trees rooted at function definitions
         for (FunctionDefinitionContext funDef : prog.funDefs) {
-            String funId = funDef.id.getText();
-            StringBuilder sb = new StringBuilder(funId + ":\"(");
-            for (Type t : funDef.signature.paramTypes())
-                sb.append(JvmTypeSymbol(t));
-            sb.append(")" + JvmTypeSymbol(funDef.signature.returnType()) + "\"");
-            String methodSpec = sb.toString();
-            String qualifiedMethod = methodSpec;
-            methodSymTab.put(funId, qualifiedMethod);
-        }
-
-        // The symbol table for methods is needed when generating function
-        // call expressions, so make it a class member of ExpressionGenerator.
-        ExpressionGenerator.setMethodSymTab(methodSymTab);
-
-        // Generate JVM methods from the function definitions of the program
-        for (FunctionDefinitionContext funDef : prog.funDefs) {
-            String spec = methodSymTab.get(funDef.id.getText());
-            JvmMethod method = JvmMethod.from(funDef, spec);
-            TextStringBuilder methodOutput = method.collectCode();
-            finalOutput.appendln(methodOutput);
+            String name = funDef.id.getText();
+            String descriptor = JvmFormatter.methodDescriptor(funDef.signature);
+            String specification = name + ":" + descriptor;
+            JvmMethod targetMethod = new JvmMethod(specification);
+            stmGen.setTarget(targetMethod);
+            targetMethod.pushScope();
+            int paramListLen = funDef.signature.paramTypes().size();
+            // (Guaranteed by parser to be of same length)
+            for (int i = 0; i < paramListLen; i++)
+                targetMethod.addVar(funDef.paramIds.get(i), funDef.signature.paramTypes().get(i));
+            for (StatementContext stm : funDef.body)
+                stm.accept(stmGen);
+            // Assembler requires void method bodies to end with return (language does not)
+            if (funDef.signature.returnType().isVoid())
+                targetMethod.addInstruction("return", 0);
+            finalOutput.appendln(targetMethod.collectCode());
         }
 
         finalOutput.appendln("}");
 
-        // Return assembly text
         return finalOutput.toString();
     }
 
-    // Resolves Types to their corresponding JVM type symbols
-    private String JvmTypeSymbol(Type t) {
-        switch (t) {
-            case BOOL:
-                return "Z";
-            case VOID:
-                return "V";
-            case STRING:
-                return "Ljava/lang/String;";
-            case INT:
-                return "I";
-            case DOUBLE:
-                return "D";
-            default:
-                return "";
-        }
-    }
 }

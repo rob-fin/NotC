@@ -12,13 +12,13 @@ import org.antlr.v4.runtime.CommonToken;
 import java.util.List;
 
 // Visitor for the highest-level construct in the grammar. Entry point for semantic analysis.
-public class ProgramChecker extends NotCBaseVisitor<Void> {
+public class ProgramChecker extends NotCBaseVisitor<SymbolTable> {
 
     // Check the list of function definitions in two passes:
     // First to collect the id and type signature of each function.
     // Then to check their definitions in a context where these functions are declared.
     @Override
-    public Void visitProgram(ProgramContext prog) {
+    public SymbolTable visitProgram(ProgramContext prog) {
         SymbolTable symTab = new SymbolTable();
 
         // Populate symbol table with functions
@@ -40,7 +40,7 @@ public class ProgramChecker extends NotCBaseVisitor<Void> {
 
         // Program is semantically sound and its parse tree now
         // has type annotations to be used by the code generator.
-        return null;
+        return symTab;
     }
 
 }

@@ -48,11 +48,11 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
             return;
         }
         throw new SemanticException(expr.getStart(),
-                                    "Expression of type "
-                                  + actual.name().toLowerCase()
-                                  + " where expression of type "
-                                  + expected.name().toLowerCase()
-                                  + " was expected");
+                                    "Expression of type " +
+                                    actual.name().toLowerCase() +
+                                    " where expression of type " +
+                                    expected.name().toLowerCase() +
+                                    " was expected");
     }
 
     // Literal expressions simply have the type of the literal

@@ -16,6 +16,8 @@ import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 import notc.antlrgen.NotCParser.AndOrExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
+import notc.antlrgen.NotCParser.Signature;
+import notc.semantics.SymbolTable;
 
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.ObjectUtils;
@@ -23,17 +25,15 @@ import org.apache.commons.lang3.ObjectUtils;
 import java.util.Map;
 
 class ExpressionGenerator extends NotCBaseVisitor<Void> {
-    private static Map<String,String> methodSymTab;
+    private SymbolTable symTab;
     private JvmMethod targetMethod;
-    private static ExpressionGenerator instance = new ExpressionGenerator();
-    private ExpressionGenerator() {}
-    static void setMethodSymTab(Map<String,String> methods) {
-        methodSymTab = methods;
+
+    ExpressionGenerator(SymbolTable symTab) {
+        this.symTab = symTab;
     }
 
-    static ExpressionGenerator withTarget(JvmMethod method) {
-        instance.targetMethod = method;
-        return instance;
+    void setTarget(JvmMethod targetMethod) {
+        this.targetMethod = targetMethod;
     }
 
     // Common entry point.
@@ -117,14 +117,10 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Variable expression: look up its address and load it
     @Override
     public Void visitVariableExpression(VariableExpressionContext varExpr) {
-        Type varType = varExpr.type;
         int varAddr = targetMethod.lookupVar(varExpr.varId);
-        if (varType.isDouble())
-            targetMethod.addInstruction("dload " + varAddr, 2);
-        else if (varType.isString())
-            targetMethod.addInstruction("aload " + varAddr, 1);
-        else
-            targetMethod.addInstruction("iload " + varAddr, 1);
+        int stackSize = (varExpr.type.isDouble()) ? 2 : 1;
+        String loadInstr = JvmFormatter.formatLoad(varExpr.type);
+        targetMethod.addInstruction(loadInstr + varAddr, stackSize);
         return null;
     }
 
@@ -148,7 +144,9 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         else if (!returnType.isVoid())
             returnStackSize = 1;
 
-        String invocation = "invokestatic Method " + methodSymTab.get(funCallExpr.id.getText());
+        Signature signature = symTab.lookupFun(funCallExpr.id);
+        String descriptor = JvmFormatter.methodDescriptor(signature);
+        String invocation = "invokestatic Method " + funCallExpr.id.getText() + ":" + descriptor;
                                                 // Arguments are popped, return value is pushed
         targetMethod.addInstruction(invocation, returnStackSize - argStackSize);
         return null;
@@ -156,33 +154,21 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
 
     @Override
     public Void visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
-        char typeSymbol;
-        String dupInstr;
-        int stackSpace;
-        if (incrDecrExpr.type.isInt()) {
-            typeSymbol = 'i';
-            dupInstr = "dup";
-            stackSpace = 1;
-        } else {
-            typeSymbol = 'd';
-            dupInstr = "dup2";
-            stackSpace = 2;
-        }
+        Type varType = incrDecrExpr.type;
+        char typePrefix = JvmFormatter.typePrefix(varType);
+        String dupInstr = JvmFormatter.formatDup(varType);
+        int stackSpace = (varType.isInt()) ? 1 : 2;
         Token opTok = ObjectUtils.firstNonNull(incrDecrExpr.preOp, incrDecrExpr.postOp);
-        String operation;
-        if (opTok.getType() == NotCParser.INCR)
-            operation = "add";
-        else
-            operation = "sub";
+        String operation = JvmFormatter.operationByToken(opTok);
         int varAddr = targetMethod.lookupVar(incrDecrExpr.varId);
-        targetMethod.addInstruction(typeSymbol + "load " + varAddr, stackSpace);
+        targetMethod.addInstruction(JvmFormatter.formatLoad(varType) + varAddr, stackSpace);
         if (incrDecrExpr.postOp != null)
             targetMethod.addInstruction(dupInstr, stackSpace); // Leave previous value on stack
-        targetMethod.addInstruction(typeSymbol + "const_1", stackSpace);
-        targetMethod.addInstruction(typeSymbol + operation, -stackSpace);
+        targetMethod.addInstruction(typePrefix + "const_1", stackSpace);
+        targetMethod.addInstruction(typePrefix + operation, -stackSpace);
         if (incrDecrExpr.preOp != null)
             targetMethod.addInstruction(dupInstr, stackSpace); // Leave new value on stack
-        targetMethod.addInstruction(typeSymbol + "store " + varAddr, -stackSpace);
+        targetMethod.addInstruction(JvmFormatter.formatStore(varType) + varAddr, -stackSpace);
         return null;
     }
 
@@ -192,23 +178,15 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         // Generate operands
         generate(arithmExpr.opnd1);
         generate(arithmExpr.opnd2);
-        String operation = operationByToken(arithmExpr.op);
+        int stackChange;
         if (arithmExpr.type.isInt()) // stack: i i -> i
-            targetMethod.addInstruction("i" + operation, -1);
+            stackChange = -1;
         else // stack: d d -> d
-            targetMethod.addInstruction("d" + operation, -2);
+            stackChange = -2;
+        char typePrefix  = JvmFormatter.typePrefix(arithmExpr.type);
+        String operation = JvmFormatter.operationByToken(arithmExpr.op);
+        targetMethod.addInstruction(typePrefix + operation, stackChange);
         return null;
-    }
-
-    private String operationByToken(Token opTok) {
-        switch (opTok.getType()) {
-            case NotCParser.MUL:  return "mul";
-            case NotCParser.DIV:  return "div";
-            case NotCParser.REM:  return "rem";
-            case NotCParser.ADD:  return "add";
-            case NotCParser.SUB:  return "sub";
-            default:              return "";
-        }
     }
 
     @Override
@@ -226,22 +204,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     private void generateIntComparison(ComparisonExpressionContext compExpr) {
         String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        String op = null;
-        switch (compExpr.op.getType()) {
-            case NotCParser.LT:  op = "lt";
-                                 break;
-            case NotCParser.GT:  op = "gt";
-                                 break;
-            case NotCParser.GE:  op = "ge";
-                                 break;
-            case NotCParser.LE:  op = "le";
-                                 break;
-            case NotCParser.EQ:  op = "eq";
-                                 break;
-            case NotCParser.NE:  op = "ne";
-                                 break;
-        }
-        targetMethod.addInstruction("if_icmp" + op + " " + trueLabel, -2);
+        String operation = JvmFormatter.operationByToken(compExpr.op);
+        targetMethod.addInstruction("if_icmp" + operation + " " + trueLabel, -2);
         targetMethod.addInstruction("iconst_0", 1); // false
         targetMethod.addInstruction("goto " + endLabel, 0);
         targetMethod.addInstruction(trueLabel + ":", 0);
@@ -297,11 +261,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Use bitwise and/or on operands and check if result is 0
     @Override
     public Void visitAndOrExpression(AndOrExpressionContext andOrExpr) {
-        String operation;
-        if (andOrExpr.op.getType() == NotCParser.AND)
-            operation = "iand";
-        else
-            operation = "ior";
+        String operation = 'i' + JvmFormatter.operationByToken(andOrExpr.op);
         String falseLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
         // Put operands on stack
@@ -322,25 +282,12 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
         generate(assExpr.rhs); // Expression on the right of = goes on stack
         int varAddr = targetMethod.lookupVar(assExpr.varId);
-        String storeInstr;
-        String dupInstr;
-        int stackSpace;
-        if (assExpr.type.isDouble()) {
-            storeInstr = "dstore ";
-            dupInstr   = "dup2";
-            stackSpace = 2;
-        } else if (assExpr.type.isString()) {
-            storeInstr = "astore ";
-            dupInstr   = "dup";
-            stackSpace = 1;
-        } else { // ints, bools
-            storeInstr = "istore ";
-            dupInstr   = "dup";
-            stackSpace = 1;
-        }
+        String storeInstr = JvmFormatter.formatStore(assExpr.type);
+        String dupInstr = JvmFormatter.formatDup(assExpr.type);
+        int stackSize = (assExpr.type.isDouble()) ? 2 : 1;
         // Stored value is value of expression and is left on stack
-        targetMethod.addInstruction(dupInstr, stackSpace);
-        targetMethod.addInstruction(storeInstr + varAddr, -stackSpace);
+        targetMethod.addInstruction(dupInstr, stackSize);
+        targetMethod.addInstruction(storeInstr + varAddr, -stackSize);
         return null;
     }
 

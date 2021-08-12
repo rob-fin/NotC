@@ -11,9 +11,8 @@ import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.HashMap;
 
-// Resolves types in the semantic analysis environment:
-// Function ids to signatures and variables to declared types.
-class SymbolTable {
+// Resolves types: Function ids to signatures and variables to declared types.
+public class SymbolTable {
 
     // Functions
     private HashMap<String,Signature> signatures;
@@ -83,7 +82,7 @@ class SymbolTable {
     }
 
     // Used when type checking function calls
-    Signature lookupFun(Token idTok) {
+    public Signature lookupFun(Token idTok) {
         Signature signature = signatures.get(idTok.getText());
         if (signature != null)
             return signature;
