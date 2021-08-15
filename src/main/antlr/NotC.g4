@@ -54,6 +54,35 @@ import java.util.Set;
             return CONVERTIBLES.contains(this) && CONVERTIBLES.contains(t);
         }
 
+        public char prefix() {
+            switch (this) {
+                case STRING: return 'a';
+                case DOUBLE: return 'd';
+                case INT:
+                case BOOL:   return 'i'; // Treated as integer
+                default:     return ' ';
+            }
+        }
+
+        public String descriptor() {
+            switch (this) {
+                case BOOL:   return "Z";
+                case VOID:   return "V";
+                case STRING: return "Ljava/lang/String;";
+                case INT:    return "I";
+                case DOUBLE: return "D";
+                default:     return "";
+            }
+        }
+
+        public int size() {
+            if (isDouble())
+                return 2;
+            if (isVoid())
+                return 0;
+            return 1;
+        }
+
         // Resolves abstract syntax types to instances
         // of this enum using a utility visitor
         public static Type resolve(TypeTokenContext ctx) {
@@ -115,6 +144,14 @@ import java.util.Set;
 
         public Type returnType() {
             return returnType;
+        }
+
+        public String methodDescriptor() {
+            StringBuilder sb = new StringBuilder("\"(");
+            for (Type t : paramTypes())
+                sb.append(t.descriptor());
+            sb.append(")" + returnType().descriptor() + "\"");
+            return sb.toString();
         }
     }
 }

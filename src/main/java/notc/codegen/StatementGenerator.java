@@ -48,9 +48,9 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         targetMethod.addVar(initStm.varId, varType);
         // Generate its initializing expression
         exprGen.generate(initStm.expr);
-        int stackChange = (varType.isDouble()) ? 2 : 1;
         int varAddr = targetMethod.lookupVar(initStm.varId);
-        targetMethod.addInstruction(JvmFormatter.formatStore(varType) + varAddr, stackChange);
+        int varSize = varType.size();
+        targetMethod.addInstruction(varType.prefix() + "store " + varAddr, -varSize);
         return null;
     }
 
@@ -62,9 +62,9 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
         if (exprType.isVoid())
             return null; // Leaves nothing on the stack anyway
         else if (exprType.isDouble())
-            targetMethod.addInstruction("pop2", -2);
+            targetMethod.addInstruction("pop2", -exprType.size());
         else // ints, bools, strings
-            targetMethod.addInstruction("pop", -1);
+            targetMethod.addInstruction("pop", -exprType.size());
         return null;
     }
 
@@ -132,12 +132,7 @@ class StatementGenerator extends NotCBaseVisitor<Void> {
             return null;
         }
         Type returnedType = exprGen.generate(_return.expr);
-        if (returnedType.isDouble())
-            targetMethod.addInstruction("dreturn", -2);
-        else if (returnedType.isString())
-            targetMethod.addInstruction("areturn", -1);
-        else // Non-converted ints, bools
-            targetMethod.addInstruction("ireturn", -1);
+        targetMethod.addInstruction(returnedType.prefix() + "return", -returnedType.size());
         return null;
     }
 }

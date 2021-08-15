@@ -43,7 +43,7 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         // Generate JVM methods from parse trees rooted at function definitions
         for (FunctionDefinitionContext funDef : prog.funDefs) {
             String name = funDef.id.getText();
-            String descriptor = JvmFormatter.methodDescriptor(funDef.signature);
+            String descriptor = funDef.signature.methodDescriptor();
             String specification = name + ":" + descriptor;
             JvmMethod targetMethod = new JvmMethod(specification);
             stmGen.setTarget(targetMethod);

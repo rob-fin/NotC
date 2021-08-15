@@ -69,10 +69,9 @@ class JvmMethod {
 
     // Local variables. This is effectively symbol table functionality.
 
-    // Double is the only type that takes up two "slots" on the stack
     void addVar(Token idTok, Type t) {
         vars.peekFirst().put(idTok.getText(), nextVarAddr);
-        nextVarAddr += t.isDouble() ? 2 : 1;
+        nextVarAddr += t.size();
     }
 
     // Start looking in outermost scope and return when a match is found

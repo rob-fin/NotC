@@ -9,7 +9,6 @@ import notc.antlrgen.NotCParser.StringTypeContext;
 import notc.antlrgen.NotCParser.VoidTypeContext;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.BeforeEach;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -19,12 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 // syntax classes to make dealing with types in the compiler components easier.
 class TypeTest {
 
-    TypeTokenContext typeCtx;
-
-    @BeforeEach
-    void init() {
-        typeCtx = new TypeTokenContext();
-    }
+    private final TypeTokenContext typeCtx = new TypeTokenContext();
 
     @Test
     void ResolveBool_BoolResolved() {
@@ -128,6 +122,56 @@ class TypeTest {
         assertFalse(Type.STRING.isConvertibleTo(Type.BOOL));
         assertFalse(Type.STRING.isConvertibleTo(Type.DOUBLE));
         assertFalse(Type.STRING.isConvertibleTo(Type.INT));
+    }
+
+    @Test
+    void TypeDescriptor_Bool() {
+        assertEquals("Z", Type.BOOL.descriptor());
+    }
+
+    @Test
+    void TypeDescriptor_Void() {
+        assertEquals("V", Type.VOID.descriptor());
+    }
+
+    @Test
+    void TypeDescriptor_String() {
+        assertEquals("Ljava/lang/String;", Type.STRING.descriptor());
+    }
+
+    @Test
+    void TypeDescriptor_Int() {
+        assertEquals("I", Type.INT.descriptor());
+    }
+
+    @Test
+    void TypeDescriptor_Double() {
+        assertEquals("D", Type.DOUBLE.descriptor());
+    }
+
+    @Test
+    void Size_Double() {
+        assertEquals(2, Type.DOUBLE.size());
+    }
+
+    @Test
+    void Size_Void() {
+        assertEquals(0, Type.VOID.size());
+    }
+
+    @Test
+    void Size_Bool() {
+        assertEquals(1, Type.BOOL.size());
+    }
+
+    @Test
+    void Size_String() {
+        assertEquals(1, Type.STRING.size());
+    }
+
+    @Test
+    void Size_Int() {
+        assertEquals(1, Type.INT.size());
     }
 
 }

@@ -13,17 +13,17 @@ public class SignatureTest {
 
     @Test
     void EmptyParamList_Arity0AndReturnEmptyList() {
-        Signature funType = new Signature(null, List.of());
-        assertEquals(0, funType.arity());
-        assertTrue(funType.paramTypes().isEmpty());
+        Signature sig = new Signature(Type.INT, List.of());
+        assertEquals(0, sig.arity());
+        assertTrue(sig.paramTypes().isEmpty());
     }
 
     @Test
     void OneIntParam_Arity1AndReturnListWithOneInt() {
         Type paramType = Type.INT;
-        Signature funType = new Signature(null, List.of(paramType));
-        assertEquals(1, funType.arity());
-        List<Type> returnedParamTypeList = funType.paramTypes();
+        Signature sig = new Signature(Type.INT, List.of(paramType));
+        assertEquals(1, sig.arity());
+        List<Type> returnedParamTypeList = sig.paramTypes();
         assertEquals(1, returnedParamTypeList.size());
         assertEquals(paramType, returnedParamTypeList.get(0));
     }
@@ -38,15 +38,42 @@ public class SignatureTest {
                                             Type.STRING,
                                             Type.INT,
                                             Type.INT);
-        Signature funType = new Signature(null, paramTypesInit);
-        List<Type> returnedParamTypes = funType.paramTypes();
-        assertTrue(paramTypesInit.equals(returnedParamTypes));
+        Signature sig = new Signature(Type.INT, paramTypesInit);
+        List<Type> returnedParamTypes = sig.paramTypes();
+        assertEquals(paramTypesInit, returnedParamTypes);
     }
 
     @Test
     void VoidReturnType_ReturnVoid() {
-        Signature funType = new Signature(Type.VOID, null);
-        assertEquals(Type.VOID, funType.returnType());
+        Signature sig = new Signature(Type.VOID, null);
+        assertEquals(Type.VOID, sig.returnType());
+    }
+
+    @Test
+    void MethodDescriptor_NoParamsBoolReturn() {
+        Signature sig = new Signature(Type.BOOL, List.of());
+        String actualDescriptor = sig.methodDescriptor();
+        assertEquals("\"()Z\"", actualDescriptor);
+    }
+
+    @Test
+    void MethodDescriptor_ManyInts() {
+        Signature sig = new Signature(Type.INT, List.of(Type.INT,
+                                                        Type.INT,
+                                                        Type.INT,
+                                                        Type.INT));
+        String actualDescriptor = sig.methodDescriptor();
+        assertEquals("\"(IIII)I\"", actualDescriptor);
+    }
+
+    @Test
+    void MethodDescriptor_MixedTypes() {
+        Signature sig = new Signature(Type.VOID, List.of(Type.DOUBLE,
+                                                         Type.STRING,
+                                                         Type.BOOL,
+                                                         Type.INT));
+        String actualDescriptor = sig.methodDescriptor();
+        assertEquals("\"(DLjava/lang/String;ZI)V\"", actualDescriptor);
     }
 
 }
