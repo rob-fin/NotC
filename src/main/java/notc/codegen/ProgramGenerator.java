@@ -14,8 +14,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class ProgramGenerator extends NotCBaseVisitor<String> {
-    private SymbolTable symTab;
-    private String className;
+    private final SymbolTable symTab;
+    private final String className;
 
     public ProgramGenerator(SymbolTable symTab, String className) {
         this.symTab = symTab;
@@ -28,36 +28,22 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         TextStringBuilder finalOutput = new TextStringBuilder();
         finalOutput.appendln("super public class " + className + "{");
 
-        // Load resource containing the language's built-in functions
-        // implemented as methods in Jasm assembly. They become part of the class.
+        // Load resource containing built-in functions.
         // Also contains JVM entry point main, which calls the generated main.
         ClassLoader classLoader = getClass().getClassLoader();
         try (InputStream is = classLoader.getResourceAsStream("boilerplate.jasm")) {
             finalOutput.appendln(IOUtils.toString(is, StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new RuntimeException("No intention to handle", e);
+            throw new RuntimeException("Shouldn't happen because file exists", e);
         }
 
-        StatementGenerator stmGen = new StatementGenerator(symTab);
+        ExpressionGenerator exprGen = new ExpressionGenerator(symTab);
+        FunctionGenerator funGen = new FunctionGenerator(exprGen);
 
         // Generate JVM methods from parse trees rooted at function definitions
         for (FunctionDefinitionContext funDef : prog.funDefs) {
-            String name = funDef.id.getText();
-            String descriptor = funDef.signature.methodDescriptor();
-            String specification = name + ":" + descriptor;
-            JvmMethod targetMethod = new JvmMethod(specification);
-            stmGen.setTarget(targetMethod);
-            targetMethod.pushScope();
-            int paramListLen = funDef.signature.paramTypes().size();
-            // (Guaranteed by parser to be of same length)
-            for (int i = 0; i < paramListLen; i++)
-                targetMethod.addVar(funDef.paramIds.get(i), funDef.signature.paramTypes().get(i));
-            for (StatementContext stm : funDef.body)
-                stm.accept(stmGen);
-            // Assembler requires void method bodies to end with return (language does not)
-            if (funDef.signature.returnType().isVoid())
-                targetMethod.addInstruction("return", 0);
-            finalOutput.appendln(targetMethod.collectCode());
+            JvmMethod method = funGen.generate(funDef);
+            finalOutput.appendln(method.collectCode());
         }
 
         finalOutput.appendln("}");

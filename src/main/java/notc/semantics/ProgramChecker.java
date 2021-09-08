@@ -21,19 +21,13 @@ public class ProgramChecker extends NotCBaseVisitor<SymbolTable> {
     public SymbolTable visitProgram(ProgramContext prog) {
         SymbolTable symTab = new SymbolTable();
 
-        // Populate symbol table with functions
         for (FunctionDefinitionContext funDef : prog.funDefs)
             symTab.addFun(funDef.id, funDef.signature);
 
-        // Check that main is present and ok
-        Signature mainType = symTab.lookupFun(new CommonToken(NotCParser.ID, "main"));
-        if (mainType.arity() != 0)
-            throw new SemanticException("Non-empty parameter list in function main");
-        Type mainReturn = mainType.returnType();
-        if (!mainReturn.isVoid())
-            throw new SemanticException("Non-void return type declared for function main");
+        Signature mainSig = symTab.lookupFun(new CommonToken(NotCParser.ID, "main"));
+        if (mainSig == null || mainSig.arity() != 0 || !mainSig.returnType().isVoid())
+            throw new SemanticException("Function void main() undefined");
 
-        // Check each function definition
         FunctionChecker funChecker = new FunctionChecker(symTab);
         for (FunctionDefinitionContext funDef : prog.funDefs)
             funChecker.checkDefinition(funDef);

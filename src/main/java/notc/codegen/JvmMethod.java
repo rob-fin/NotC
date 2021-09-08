@@ -1,41 +1,54 @@
 package notc.codegen;
 
-import notc.antlrgen.NotCParser.Type;
+import notc.antlrgen.NotCParser.VariableDeclarationContext;
 
-import org.antlr.v4.runtime.Token;
 import org.apache.commons.text.TextStringBuilder;
 
-import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
-// Models a JVM method
+// Models JVM methods. Instantiated as code generator targets.
 class JvmMethod {
     // Updated as instructions are added
-    private int nextVarAddr = 0;
-    private int currentStack = 0;
-    private int maxStack = 0;
-    private int nextLabel = 0;
+    private int nextVarAddress = 0;
+    private int currentStack   = 0;
+    private int maxStack       = 0;
+    private int nextLabel      = 0;
 
-    private String spec; // Part of method header
+    private String specification;
     private TextStringBuilder body;
-    private ArrayDeque<Map<String,Integer>> vars;
+    private Map<VariableDeclarationContext,Integer> varAddresses;
 
-    JvmMethod(String spec) {
-        this.spec = spec;
-        body = new TextStringBuilder();
-        vars = new ArrayDeque<Map<String,Integer>>();
+    private JvmMethod() {}
 
+    static JvmMethod from(String specification) {
+        JvmMethod method = new JvmMethod();
+        method.specification = specification;
+        method.body = new TextStringBuilder();
+        method.varAddresses = new HashMap<>();
+        return method;
     }
 
-    TextStringBuilder collectCode() {
-        TextStringBuilder methodDef = new TextStringBuilder();
-        methodDef.appendln(indent(1) + "public static Method " + spec);
-        methodDef.appendln(indent(2) + "stack " + maxStack + " locals " + nextVarAddr);
-        methodDef.appendln(indent(1) + "{");
-        methodDef.appendln(body);
-        methodDef.appendln(indent(1) + "}");
-        return methodDef;
+    // Add an instruction to the body and update stack accordingly
+    void addInstruction(String instruction, int stackChange) {
+        body.appendln(instruction + ";");
+        currentStack += stackChange;
+        maxStack = Math.max(maxStack, currentStack);
+    }
+
+    void reserveVarMemory(VariableDeclarationContext varDecl) {
+        varAddresses.put(varDecl, nextVarAddress);
+        nextVarAddress += varDecl.type.size();
+    }
+
+    void reserveVarMemory(List<VariableDeclarationContext> varDecls) {
+        for (VariableDeclarationContext decl : varDecls)
+            reserveVarMemory(decl);
+    }
+
+    int addressOf(VariableDeclarationContext varDecl) {
+        return varAddresses.get(varDecl);
     }
 
     // Get a new label for jump instructions
@@ -43,46 +56,10 @@ class JvmMethod {
         return "L" + nextLabel++;
     }
 
-    private String indent(int level) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < level; i++)
-            sb.append("    ");
-        return sb.toString();
+    String collectCode() {
+        return "public static Method " + specification +
+               "stack " + maxStack + " locals " + nextVarAddress +
+               "{" + body + "}";
     }
 
-    // Add an instruction to the body and update stack accordingly
-    void addInstruction(String instruction, int stackChange) {
-        body.appendln(indent(2) + instruction + ";");
-        currentStack += stackChange;
-        maxStack = Math.max(maxStack, currentStack);
-    }
-
-    // Enter block
-    void pushScope() {
-        vars.push(new HashMap<String,Integer>());
-    }
-
-    // Leave block
-    void popScope() {
-        vars.pollFirst();
-    }
-
-    // Local variables. This is effectively symbol table functionality.
-
-    void addVar(Token idTok, Type t) {
-        vars.peekFirst().put(idTok.getText(), nextVarAddr);
-        nextVarAddr += t.size();
-    }
-
-    // Start looking in outermost scope and return when a match is found
-    Integer lookupVar(Token idTok) {
-        String varId = idTok.getText();
-        Integer addr;
-        for (Map<String,Integer> scope : vars) {
-            addr = scope.get(varId);
-            if (addr != null)
-                return addr;
-        }
-        return null;
-    }
 }

@@ -2,6 +2,7 @@ package notc.semantics;
 
 import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.Signature;
+import notc.antlrgen.NotCParser.VariableDeclarationContext;
 
 import org.antlr.v4.runtime.Token;
 
@@ -11,18 +12,23 @@ import java.util.ArrayDeque;
 import java.util.Map;
 import java.util.HashMap;
 
-// Resolves types: Function ids to signatures and variables to declared types.
+// Resolves function references to signatures
+// and variable references to original declarations.
 public class SymbolTable {
 
-    // Functions
-    private HashMap<String,Signature> signatures;
-    // Variables (a stack for scoping)
-    private ArrayDeque<Map<String,Type>> variables;
+    private final Map<String,Signature> signatures;
+
+    // Tracks variable scopes during semantic analysis...
+    private final ArrayDeque<Map<String,VariableDeclarationContext>> varScopes;
+
+    // ...then saves the resolved references for fast lookup on subsequent parse tree traversals.
+    private final Map<Token,VariableDeclarationContext> varDeclarations;
 
     SymbolTable() {
-        signatures = new HashMap<String,Signature>();
-        variables = new ArrayDeque<Map<String,Type>>();
-        // Add signatures of built-in functions
+        signatures      = new HashMap<>();
+        varScopes       = new ArrayDeque<>();
+        varDeclarations = new HashMap<>();
+        // Built-in functions
         signatures.put("printInt",    new Signature(Type.VOID,   List.of(Type.INT)));
         signatures.put("printDouble", new Signature(Type.VOID,   List.of(Type.DOUBLE)));
         signatures.put("printString", new Signature(Type.VOID,   List.of(Type.STRING)));
@@ -31,62 +37,62 @@ public class SymbolTable {
         signatures.put("readString",  new Signature(Type.STRING, Collections.emptyList()));
     }
 
-    // Called in a first pass through the program to add all function declarations
+    public Signature lookupFun(Token idTok) {
+        return signatures.get(idTok.getText());
+    }
+
+    public VariableDeclarationContext lookupVar(Token idTok) {
+        return varDeclarations.get(idTok);
+    }
+
     void addFun(Token idTok, Signature signature) {
-        String funId = idTok.getText();
-        if (signatures.containsKey(funId))
+        String funName = idTok.getText();
+        if (signatures.containsKey(funName))
             throw new SemanticException(idTok, "Redefinition of function");
-        signatures.put(funId, signature);
+        signatures.put(funName, signature);
     }
 
-    // When a function body is to be checked, add its parameters as local variables.
-    void setContext(List<Type> paramTypes, List<Token> paramIds) {
-        variables.clear();
-        pushScope();
-        // Guaranteed by parser to be of same length
-        int paramListLen = paramIds.size();
-        for (int i = 0; i < paramListLen; i++)
-            addVar(paramTypes.get(i), paramIds.get(i));
+    void addVar(VariableDeclarationContext var) {
+        if (var.type.isVoid())
+            throw new SemanticException(var.id, "Variables cannot have type void");
+        Map<String,VariableDeclarationContext> outermostScope = varScopes.peekFirst();
+        String varName = var.id.getText();
+        if (outermostScope.containsKey(varName))
+            throw new SemanticException(var.id, "Redefinition of variable");
+        outermostScope.put(varName, var);
     }
 
-    // Enter block
-    void pushScope() {
-        variables.push(new HashMap<String,Type>());
+    void addVars(List<VariableDeclarationContext> vars) {
+        for (VariableDeclarationContext var : vars)
+            addVar(var);
     }
 
-    // Leave block
-    void popScope() {
-        variables.pollFirst();
-    }
-
-    void addVar(Type t, Token idTok) {
-        if (t.isVoid())
-            throw new SemanticException(idTok, "Variables cannot have type void");
-        Map<String,Type> outermostScope = variables.peekFirst();
-        String varId = idTok.getText();
-        if (outermostScope.containsKey(varId))
-            throw new SemanticException(idTok, "Redefinition of variable");
-        outermostScope.put(varId, t);
-    }
-
-    // Start looking in outermost scope and return when a match is found
-    Type lookupVar(Token idTok) {
-        String varId = idTok.getText();
-        Type t;
-        for (Map<String,Type> scope : variables) {
-            t = scope.get(varId);
-            if (t != null)
-                return t;
+    // Starts looking in outermost scope and returns when a match is found
+    VariableDeclarationContext resolveVarReference(Token idTok) {
+        String varName = idTok.getText();
+        VariableDeclarationContext varDecl;
+        for (Map<String,VariableDeclarationContext> scope : varScopes) {
+            varDecl = scope.get(varName);
+            if (varDecl != null) {
+                varDeclarations.put(idTok, varDecl);
+                return varDecl;
+            }
         }
         throw new SemanticException(idTok, "Undefined variable");
     }
 
-    // Used when type checking function calls
-    public Signature lookupFun(Token idTok) {
-        Signature signature = signatures.get(idTok.getText());
-        if (signature != null)
-            return signature;
-        throw new SemanticException(idTok, "Undefined function");
+    // Called when a new function definition is to be analyzed
+    void resetScope() {
+        varScopes.clear();
+        pushScope();
+    }
+
+    void pushScope() {
+        varScopes.push(new HashMap<>());
+    }
+
+    void popScope() {
+        varScopes.pollFirst();
     }
 
 }

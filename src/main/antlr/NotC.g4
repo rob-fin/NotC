@@ -94,33 +94,33 @@ import java.util.Set;
         static class TypeVisitor extends NotCBaseVisitor<Type> {
             @Override
             public Type visitBoolType(BoolTypeContext ctx) {
-                ctx.type = BOOL;
                 return BOOL;
             }
 
             @Override
             public Type visitDoubleType(DoubleTypeContext ctx) {
-                ctx.type = DOUBLE;
                 return DOUBLE;
             }
 
             @Override
             public Type visitIntType(IntTypeContext ctx) {
-                ctx.type = INT;
                 return INT;
             }
 
             @Override
             public Type visitStringType(StringTypeContext ctx) {
-                ctx.type = STRING;
                 return STRING;
             }
 
             @Override
             public Type visitVoidType(VoidTypeContext ctx) {
-                ctx.type = VOID;
                 return VOID;
             }
+        }
+
+        @Override
+        public String toString() {
+            return name().toLowerCase();
         }
     }
 
@@ -150,7 +150,7 @@ import java.util.Set;
             StringBuilder sb = new StringBuilder("\"(");
             for (Type t : paramTypes())
                 sb.append(t.descriptor());
-            sb.append(")" + returnType().descriptor() + "\"");
+            sb.append(")").append(returnType().descriptor()).append("\"");
             return sb.toString();
         }
     }
@@ -164,18 +164,19 @@ program
     : funDefs+=functionDefinition* EOF
     ;
 
+
 // Function definition: type, name, parameter list, body.
-// Saves static type annotation in context object when parsing.
+// Saves patched static type annotation in context object when parsing.
 functionDefinition locals [Signature signature]
 @after {
     Type returnType = $ctx.parsedReturn.type;
-    List<Type> paramTypes = Lists.transform($ctx.parsedParamTypes, t -> t.type);
+    List<Type> paramTypes = Lists.transform($ctx.params, p -> p.type);
     $ctx.signature = new Signature(returnType, paramTypes);
 }
     :
       parsedReturn=typeToken
       id=ID
-      LEFT_PAREN (parsedParamTypes+=typeToken paramIds+=ID (COMMA parsedParamTypes+=typeToken paramIds+=ID)*)? RIGHT_PAREN
+      LEFT_PAREN (params+=variableDeclaration (COMMA params+=variableDeclaration)*)? RIGHT_PAREN
       LEFT_BRACE body+=statement* RIGHT_BRACE
     ;
 
@@ -191,16 +192,34 @@ typeToken locals [Type type]
     | VOID    # VoidType
     ;
 
+
+variableDeclaration locals [Type type]
+    : typeToken id=ID {$ctx.type = $typeToken.ctx.type;}
+    ;
+
+
 statement
-    : typeDeclaration=typeToken varId=ID ASSIGN expr=expression STM_TERM                # InitializationStatement
-    | typeDeclaration=typeToken varIds+=ID (COMMA varIds+=ID)* STM_TERM                 # DeclarationStatement
+    : varDecls+=variableDeclaration (COMMA additionalIds+=ID)* STM_TERM {
+        // Desugars e.g. "int a, b" to "int a int b"
+        for (Token t : $additionalIds) {
+            VariableDeclarationContext varDecl =
+                new VariableDeclarationContext($variableDeclaration.ctx.getParent(),
+                                               $variableDeclaration.ctx.invokingState);
+            varDecl.type = $variableDeclaration.ctx.type;
+            varDecl.id = t;
+            $varDecls.add(varDecl);
+        }
+    }                                                                                   # DeclarationStatement
+    | varDecl=variableDeclaration ASSIGN expr=expression STM_TERM                       # InitializationStatement
     | expr=expression STM_TERM                                                          # ExpressionStatement
     | 'return' expr=expression? STM_TERM                                                # ReturnStatement
     | LEFT_BRACE statements+=statement* RIGHT_BRACE                                     # BlockStatement
-    | 'while' LEFT_PAREN expr=expression RIGHT_PAREN stm=statement                      # WhileStatement
-    | 'if' '(' expr=expression ')' stm=statement                                        # IfStatement
-    | 'if' LEFT_PAREN expr=expression RIGHT_PAREN stm1=statement 'else' stm2=statement  # IfElseStatement
+    | 'while' LEFT_PAREN conditionExpr=expression RIGHT_PAREN loopedStm=statement       # WhileStatement
+    | 'if' '(' conditionExpr=expression ')' consequentStm=statement                     # IfStatement
+    | 'if' LEFT_PAREN conditionExpr=expression RIGHT_PAREN
+      consequentStm=statement 'else' altStm=statement                                   # IfElseStatement
     ;
+
 
 // The types of expressions are inferred during semantic analysis
 expression locals [Type type, Type runtimeConversion]

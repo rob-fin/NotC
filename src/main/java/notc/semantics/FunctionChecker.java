@@ -8,6 +8,7 @@ import notc.antlrgen.NotCParser.FunctionDefinitionContext;
 import notc.antlrgen.NotCParser.StatementContext;
 import notc.antlrgen.NotCParser.DeclarationStatementContext;
 import notc.antlrgen.NotCParser.InitializationStatementContext;
+import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.antlrgen.NotCParser.ExpressionStatementContext;
 import notc.antlrgen.NotCParser.BlockStatementContext;
 import notc.antlrgen.NotCParser.WhileStatementContext;
@@ -21,9 +22,9 @@ import org.antlr.v4.runtime.Token;
 // This involves visiting each statement
 // and type checking their constituent expressions.
 class FunctionChecker extends NotCBaseVisitor<Void> {
-    private SymbolTable symTab;
+    private final SymbolTable symTab;
+    private final ExpressionChecker exprChecker;
     private Type expectedReturn;
-    private ExpressionChecker exprChecker;
 
     FunctionChecker(SymbolTable symTab) {
         this.symTab = symTab;
@@ -32,9 +33,9 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
 
     // Entry point: Add parameters as local variables, then visit each statement
     void checkDefinition(FunctionDefinitionContext funDef) {
-        Signature signature = symTab.lookupFun(funDef.id);
-        symTab.setContext(signature.paramTypes(), funDef.paramIds);
-        expectedReturn = signature.returnType();
+        symTab.resetScope();
+        symTab.addVars(funDef.params);
+        expectedReturn = funDef.signature.returnType();
         for (StatementContext stm : funDef.body)
             stm.accept(this);
     }
@@ -42,18 +43,16 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     // "type id1, id2...": Add declared variables to symbol table
     @Override
     public Void visitDeclarationStatement(DeclarationStatementContext declStm) {
-        Type declaredType = declStm.typeDeclaration.type;
-        for (Token id : declStm.varIds)
-            symTab.addVar(declaredType, id);
+        symTab.addVars(declStm.varDecls);
         return null;
     }
 
     // "type id = expr": Add variable after checking its initializing expression
     @Override
     public Void visitInitializationStatement(InitializationStatementContext initStm) {
-        Type declaredType = initStm.typeDeclaration.type;
+        Type declaredType = initStm.varDecl.type;
         exprChecker.expectType(initStm.expr, declaredType);
-        symTab.addVar(declaredType, initStm.varId);
+        symTab.addVar(initStm.varDecl);
         return null;
     }
 
@@ -78,32 +77,32 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     // Same in while and if, but also check expression
 
     @Override
-    public Void visitWhileStatement(WhileStatementContext _while) {
-        exprChecker.expectType(_while.expr, Type.BOOL);
+    public Void visitWhileStatement(WhileStatementContext whileStm) {
+        exprChecker.expectType(whileStm.conditionExpr, Type.BOOL);
         symTab.pushScope();
-        _while.stm.accept(this);
+        whileStm.loopedStm.accept(this);
         symTab.popScope();
         return null;
     }
 
     @Override
-    public Void visitIfStatement(IfStatementContext _if) {
-        exprChecker.expectType(_if.expr, Type.BOOL);
+    public Void visitIfStatement(IfStatementContext ifStm) {
+        exprChecker.expectType(ifStm.conditionExpr, Type.BOOL);
         symTab.pushScope();
-        _if.stm.accept(this);
+        ifStm.consequentStm.accept(this);
         symTab.popScope();
         return null;
     }
 
-    // If-else statements define two new scopes
+    // New scope in each branch
     @Override
-    public Void visitIfElseStatement(IfElseStatementContext ifElse) {
-        exprChecker.expectType(ifElse.expr, Type.BOOL);
+    public Void visitIfElseStatement(IfElseStatementContext ifElseStm) {
+        exprChecker.expectType(ifElseStm.conditionExpr, Type.BOOL);
         symTab.pushScope();
-        ifElse.stm1.accept(this);
+        ifElseStm.consequentStm.accept(this);
         symTab.popScope();
         symTab.pushScope();
-        ifElse.stm2.accept(this);
+        ifElseStm.altStm.accept(this);
         symTab.popScope();
         return null;
     }
@@ -111,14 +110,15 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
     // Check expression of return statement against function's declared return type
     // (unless it's void).
     @Override
-    public Void visitReturnStatement(ReturnStatementContext _return) {
-        if (_return.expr != null) {
-            exprChecker.expectType(_return.expr, expectedReturn);
+    public Void visitReturnStatement(ReturnStatementContext returnStm) {
+        if (returnStm.expr != null) {
+            exprChecker.expectType(returnStm.expr, expectedReturn);
             return null;
         }
         if (!expectedReturn.isVoid()) {
-            throw new SemanticException(_return.getStart(),
-                                        "Return statement with value in void-returning function");
+            throw new SemanticException(returnStm.getStart(),
+                "Return without value in non-void function"
+            );
         }
         return null;
     }

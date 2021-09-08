@@ -3,6 +3,7 @@ package notc.semantics;
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.Signature;
+import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.antlrgen.NotCParser.ExpressionContext;
 import notc.antlrgen.NotCParser.FalseLiteralExpressionContext;
 import notc.antlrgen.NotCParser.TrueLiteralExpressionContext;
@@ -22,13 +23,12 @@ import org.antlr.v4.runtime.Token;
 
 import java.util.List;
 
-// Visitor that type checks expressions. Each visit method tries to infer the type of the
-// expression it was called on. If a type cannot be inferred, a SemanticException is thrown with
-// the offending token and a message. Otherwise, each method annotates the corresponding parse
-// tree node with the type (to be used by the code generator). The inferred type is returned to the
-// caller because the expression may be a subexpression of another one whose type depends on it.
+// Each visit method tries to infer the type of the expression it was called on. If a type cannot
+// be inferred, compilation stops. Otherwise, the corresponding parse tree node is annotated with
+// the type for later use by the code generator. The inferred type is returned to the caller
+// because the expression may be a subexpression of another one whose type depends on it.
 class ExpressionChecker extends NotCBaseVisitor<Type> {
-    private SymbolTable symTab;
+    private final SymbolTable symTab;
 
     ExpressionChecker(SymbolTable symTab) {
         this.symTab = symTab;
@@ -39,7 +39,7 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         return t;
     }
 
-    // Utility to check if an expression has some expected type
+    // Checks if an expression has some expected type
     void expectType(ExpressionContext expr, Type expected) {
         Type actual = expr.accept(this);
         if (actual == expected) return;
@@ -48,10 +48,8 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
             return;
         }
         throw new SemanticException(expr.getStart(),
-                                    "Expression of type " +
-                                    actual.name().toLowerCase() +
-                                    " where expression of type " +
-                                    expected.name().toLowerCase() +
+                                    "Expression of type " + actual +
+                                    " where expression of type " + expected +
                                     " was expected");
     }
 
@@ -81,34 +79,51 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         return typeAnnotate(strLitExpr, Type.STRING);
     }
 
-    // Look up declared type
+    // Looks up declared type
     @Override
     public Type visitVariableExpression(VariableExpressionContext varExpr) {
-        return typeAnnotate(varExpr, symTab.lookupVar(varExpr.varId));
+        VariableDeclarationContext originalDecl = symTab.resolveVarReference(varExpr.varId);
+        return typeAnnotate(varExpr, originalDecl.type);
     }
 
-    // Check arity against number of arguments and parameter types against argument types
+    // Checks arity against number of arguments and parameter types against argument types
     @Override
     public Type visitFunctionCallExpression(FunctionCallExpressionContext funCallExpr) {
         Signature signature = symTab.lookupFun(funCallExpr.id);
+        if (signature == null)
+            throw new SemanticException(funCallExpr.id, "Undefined function");
         if (signature.arity() != funCallExpr.args.size()) {
-            throw new SemanticException(funCallExpr.getStart(),
+            throw new SemanticException(funCallExpr.id,
                                         "Wrong number of arguments in function call");
         }
         int i = 0;
         for (Type t : signature.paramTypes())
-            expectType(funCallExpr.args.get(i++), t);
+            expectType(funCallExpr.args.get(i++), t); // Guaranteed by parser to be of same length
         return typeAnnotate(funCallExpr, signature.returnType());
     }
 
     @Override
     public Type visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
-        Type t = symTab.lookupVar(incrDecrExpr.varId);
-        if (t.isNumerical())
-            return typeAnnotate(incrDecrExpr, t);
+        VariableDeclarationContext originalDecl = symTab.resolveVarReference(incrDecrExpr.varId);
+        Type declaredType = originalDecl.type;
+        if (declaredType.isNumerical())
+            return typeAnnotate(incrDecrExpr, declaredType);
         throw new SemanticException(incrDecrExpr.varId,
-                                    "Attempted increment or decrement "
-                                  + "of variable that was not int or double");
+                                    "Attempted increment or decrement of non-numerical variable");
+    }
+
+    // +, -, *, /, %
+    @Override
+    public Type visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
+        Type overallType = checkBinaryNumerical(arithmExpr.opnd1, arithmExpr.opnd2);
+        return typeAnnotate(arithmExpr, overallType);
+    }
+
+    // Numerical comparisons: <, > <=, >=, ==, !=
+    @Override
+    public Type visitComparisonExpression(ComparisonExpressionContext compExpr) {
+        checkBinaryNumerical(compExpr.opnd1, compExpr.opnd2);
+        return typeAnnotate(compExpr, Type.BOOL);
     }
 
     // Utility for type checking arithmetic and comparison expressions
@@ -128,20 +143,6 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         return mostGeneralType;
     }
 
-    // +, -, *, /, %
-    @Override
-    public Type visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
-        Type overallType = checkBinaryNumerical(arithmExpr.opnd1, arithmExpr.opnd2);
-        return typeAnnotate(arithmExpr, overallType);
-    }
-
-    // Numerical comparisons: <, > <=, >=, ==, !=
-    @Override
-    public Type visitComparisonExpression(ComparisonExpressionContext compExpr) {
-        checkBinaryNumerical(compExpr.opnd1, compExpr.opnd2);
-        return typeAnnotate(compExpr, Type.BOOL);
-    }
-
     @Override
     public Type visitAndOrExpression(AndOrExpressionContext andOrExpr) {
         Type t1 = andOrExpr.opnd1.accept(this);
@@ -154,7 +155,8 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     // Expression to the right of = must be inferable to the variable's declared type
     @Override
     public Type visitAssignmentExpression(AssignmentExpressionContext assExpr) {
-        Type declaredType = symTab.lookupVar(assExpr.varId);
+        VariableDeclarationContext originalDecl = symTab.resolveVarReference(assExpr.varId);
+        Type declaredType = originalDecl.type;
         expectType(assExpr.rhs, declaredType);
         return typeAnnotate(assExpr, declaredType);
     }
