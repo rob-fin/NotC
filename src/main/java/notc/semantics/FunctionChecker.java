@@ -2,21 +2,16 @@ package notc.semantics;
 
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.Type;
-import notc.antlrgen.NotCParser.Signature;
-import notc.antlrgen.NotCParser.ExpressionContext;
 import notc.antlrgen.NotCParser.FunctionDefinitionContext;
 import notc.antlrgen.NotCParser.StatementContext;
 import notc.antlrgen.NotCParser.DeclarationStatementContext;
 import notc.antlrgen.NotCParser.InitializationStatementContext;
-import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.antlrgen.NotCParser.ExpressionStatementContext;
 import notc.antlrgen.NotCParser.BlockStatementContext;
 import notc.antlrgen.NotCParser.WhileStatementContext;
 import notc.antlrgen.NotCParser.IfStatementContext;
 import notc.antlrgen.NotCParser.IfElseStatementContext;
 import notc.antlrgen.NotCParser.ReturnStatementContext;
-
-import org.antlr.v4.runtime.Token;
 
 // Visitor that performs semantic analysis on function definitions.
 // This involves visiting each statement
@@ -31,28 +26,28 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         exprChecker = new ExpressionChecker(symTab);
     }
 
-    // Entry point: Add parameters as local variables, then visit each statement
+    // Entry point: adds parameters as local variables, then visits each statement
     void checkDefinition(FunctionDefinitionContext funDef) {
         symTab.resetScope();
-        symTab.addVars(funDef.params);
-        expectedReturn = funDef.signature.returnType();
+        symTab.declareVariables(funDef.header.params);
+        expectedReturn = funDef.header.returnType;
         for (StatementContext stm : funDef.body)
             stm.accept(this);
     }
 
-    // "type id1, id2...": Add declared variables to symbol table
+    // "type id1, id2...": adds variables to symbol table
     @Override
     public Void visitDeclarationStatement(DeclarationStatementContext declStm) {
-        symTab.addVars(declStm.varDecls);
+        symTab.declareVariables(declStm.varDecls);
         return null;
     }
 
-    // "type id = expr": Add variable after checking its initializing expression
+    // "type id = expr": adds variable after checking its initializing expression
     @Override
     public Void visitInitializationStatement(InitializationStatementContext initStm) {
         Type declaredType = initStm.varDecl.type;
         exprChecker.expectType(initStm.expr, declaredType);
-        symTab.addVar(initStm.varDecl);
+        symTab.declareVariable(initStm.varDecl);
         return null;
     }
 
@@ -62,7 +57,6 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         exprStm.expr.accept(exprChecker);
         return null;
     }
-
 
     // New scope within block statement
     @Override
@@ -74,7 +68,7 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         return null;
     }
 
-    // Same in while and if, but also check expression
+    // Same in while and if, but also checks expression
 
     @Override
     public Void visitWhileStatement(WhileStatementContext whileStm) {
@@ -107,7 +101,7 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         return null;
     }
 
-    // Check expression of return statement against function's declared return type
+    // Checks expression of return statement against function's declared return type
     // (unless it's void).
     @Override
     public Void visitReturnStatement(ReturnStatementContext returnStm) {

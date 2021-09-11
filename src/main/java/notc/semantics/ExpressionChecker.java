@@ -2,7 +2,7 @@ package notc.semantics;
 
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.Type;
-import notc.antlrgen.NotCParser.Signature;
+import notc.antlrgen.NotCParser.FunctionHeaderContext;
 import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.antlrgen.NotCParser.ExpressionContext;
 import notc.antlrgen.NotCParser.FalseLiteralExpressionContext;
@@ -19,7 +19,7 @@ import notc.antlrgen.NotCParser.AndOrExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.ParenthesizedExpressionContext;
 
-import org.antlr.v4.runtime.Token;
+import com.google.common.collect.Lists;
 
 import java.util.List;
 
@@ -48,9 +48,10 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
             return;
         }
         throw new SemanticException(expr.getStart(),
-                                    "Expression of type " + actual +
-                                    " where expression of type " + expected +
-                                    " was expected");
+            "Expression of type " + actual +
+            " where expression of type " + expected +
+            " was expected"
+        );
     }
 
     // Literal expressions simply have the type of the literal
@@ -89,17 +90,20 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     // Checks arity against number of arguments and parameter types against argument types
     @Override
     public Type visitFunctionCallExpression(FunctionCallExpressionContext funCallExpr) {
-        Signature signature = symTab.lookupFun(funCallExpr.id);
-        if (signature == null)
+        FunctionHeaderContext header = symTab.lookupFunction(funCallExpr.id);
+        if (header == null)
             throw new SemanticException(funCallExpr.id, "Undefined function");
-        if (signature.arity() != funCallExpr.args.size()) {
+        if (header.params.size() != funCallExpr.args.size()) {
             throw new SemanticException(funCallExpr.id,
-                                        "Wrong number of arguments in function call");
+                "Wrong number of arguments in function call"
+            );
         }
-        int i = 0;
-        for (Type t : signature.paramTypes())
-            expectType(funCallExpr.args.get(i++), t); // Guaranteed by parser to be of same length
-        return typeAnnotate(funCallExpr, signature.returnType());
+
+        List<Type> paramTypes = Lists.transform(header.params, p -> p.type);
+        for (int i = 0; i < paramTypes.size(); i++)
+            expectType(funCallExpr.args.get(i), paramTypes.get(i));
+
+        return typeAnnotate(funCallExpr, header.returnType);
     }
 
     @Override
@@ -109,7 +113,8 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         if (declaredType.isNumerical())
             return typeAnnotate(incrDecrExpr, declaredType);
         throw new SemanticException(incrDecrExpr.varId,
-                                    "Attempted increment or decrement of non-numerical variable");
+            "Attempted increment or decrement of non-numerical variable"
+        );
     }
 
     // +, -, *, /, %
@@ -132,7 +137,8 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         Type opnd2Type = opnd2.accept(this);
         if (!opnd1Type.isNumerical() || !opnd2Type.isNumerical()) {
             throw new SemanticException(opnd1.getParent().getStart(),
-                                        "Binary operation expects numerical operands");
+                "Binary operation expects numerical operands"
+            );
         }
         // Both operands should be generated as the largest type
         Type mostGeneralType = opnd1Type.compareTo(opnd2Type) < 0 ? opnd1Type : opnd2Type;

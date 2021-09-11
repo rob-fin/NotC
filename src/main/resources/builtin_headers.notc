@@ -1,0 +1,6 @@
+void printInt(int i)
+void printDouble(double d)
+void printString(string s)
+int readInt()
+double readDouble()
+string readString()

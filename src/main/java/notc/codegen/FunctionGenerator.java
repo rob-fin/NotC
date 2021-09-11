@@ -6,14 +6,12 @@ import notc.antlrgen.NotCParser.FunctionDefinitionContext;
 import notc.antlrgen.NotCParser.StatementContext;
 import notc.antlrgen.NotCParser.DeclarationStatementContext;
 import notc.antlrgen.NotCParser.InitializationStatementContext;
-import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.antlrgen.NotCParser.ExpressionStatementContext;
 import notc.antlrgen.NotCParser.BlockStatementContext;
 import notc.antlrgen.NotCParser.WhileStatementContext;
 import notc.antlrgen.NotCParser.IfStatementContext;
 import notc.antlrgen.NotCParser.IfElseStatementContext;
 import notc.antlrgen.NotCParser.ReturnStatementContext;
-import notc.semantics.SymbolTable;
 
 class FunctionGenerator extends NotCBaseVisitor<Void> {
     private final ExpressionGenerator exprGen;
@@ -25,16 +23,16 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
 
     // Entry point. Sets up target and generates the statements.
     JvmMethod generate(FunctionDefinitionContext funDef) {
-        String name = funDef.id.getText();
-        String descriptor = funDef.signature.methodDescriptor();
+        String name = funDef.header.id.getText();
+        String descriptor = funDef.header.descriptor;
         String specification = name + ":" + descriptor;
         targetMethod = JvmMethod.from(specification);
-        targetMethod.reserveVarMemory(funDef.params);
+        targetMethod.reserveVarMemory(funDef.header.params);
         exprGen.setTarget(targetMethod);
         for (StatementContext stm : funDef.body)
             stm.accept(this);
         // Don't fall off the end of the code
-        if (funDef.signature.returnType().isVoid())
+        if (funDef.header.returnType.isVoid())
             targetMethod.addInstruction("return", 0);
         return targetMethod;
     }
@@ -71,7 +69,7 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
             case BOOL:
             case STRING: popInstr = "pop";  break;
             case VOID:   return null; // Leaves nothing on stack anyway
-            default: throw new RuntimeException("Should be unreachable. Type: " + exprType);
+            default: throw new IllegalArgumentException("Should be unreachable. Type: " + exprType);
         }
         targetMethod.addInstruction(popInstr, -exprType.size());
         return null;

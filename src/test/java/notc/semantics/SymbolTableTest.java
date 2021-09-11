@@ -2,20 +2,17 @@ package notc.semantics;
 
 import notc.antlrgen.NotCParser;
 import notc.antlrgen.NotCParser.Type;
-import notc.antlrgen.NotCParser.Signature;
+import notc.antlrgen.NotCParser.FunctionHeaderContext;
 import notc.antlrgen.NotCParser.VariableDeclarationContext;
 
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.CommonToken;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import java.util.List;
-import java.util.ArrayList;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 class SymbolTableTest {
 
@@ -29,26 +26,26 @@ class SymbolTableTest {
 
     @Test
     void AddFun_LookupSucceeds() {
-        Token funIdTok = new CommonToken(NotCParser.ID, "fffun");
-        Type returnType = Type.DOUBLE;
-        List<Type> paramTypes = List.of(Type.INT,
-                                        Type.BOOL,
-                                        Type.STRING);
-        symTab.addFun(funIdTok, new Signature(returnType, paramTypes));
-        Signature lookedUpFun = symTab.lookupFun(funIdTok);
-        assertEquals(lookedUpFun.returnType(), returnType);
-        assertEquals(paramTypes, lookedUpFun.paramTypes());
+        FunctionHeaderContext funHeader = new FunctionHeaderContext(null, 0);
+        String funName = "fffun";
+        funHeader.id = new CommonToken(NotCParser.ID, funName);
+        symTab.declareFunction(funHeader);
+        Token funRef = new CommonToken(NotCParser.ID, funName);
+        FunctionHeaderContext lookedUpFun = symTab.lookupFunction(funRef);
+        assertSame(funHeader, lookedUpFun);
     }
 
     @Test
     void RedefineFun_SemanticExceptionThrown() {
         String funName = "funFun";
-        Token funIdTok1 = new CommonToken(NotCParser.ID, funName);
-        Token funIdTok2 = new CommonToken(NotCParser.ID, funName);
-        symTab.addFun(funIdTok1, null);
-        SemanticException thrown = assertThrows(SemanticException.class, () -> {
-            symTab.addFun(funIdTok2, null);
-        });
+        FunctionHeaderContext funHeader1 = new FunctionHeaderContext(null, 0);
+        funHeader1.id = new CommonToken(NotCParser.ID, funName);
+        FunctionHeaderContext funHeader2 = new FunctionHeaderContext(null, 0);
+        funHeader2.id = new CommonToken(NotCParser.ID, funName);
+        symTab.declareFunction(funHeader1);
+        SemanticException thrown = assertThrows(SemanticException.class, () ->
+            symTab.declareFunction(funHeader2)
+        );
         String actualMessage = thrown.getMessage();
         assertTrue(actualMessage.contains("Redefinition of function"));
     }
@@ -59,10 +56,10 @@ class SymbolTableTest {
         VariableDeclarationContext varDecl = new VariableDeclarationContext(null, 0);
         varDecl.type = Type.STRING;
         varDecl.id = new CommonToken(NotCParser.ID, varName);
-        symTab.addVar(varDecl);
+        symTab.declareVariable(varDecl);
         Token varRef = new CommonToken(NotCParser.ID, varName);
         symTab.resolveVarReference(varRef);
-        VariableDeclarationContext lookedUpVar = symTab.lookupVar(varRef);
+        VariableDeclarationContext lookedUpVar = symTab.lookupVariable(varRef);
         assertSame(varDecl, lookedUpVar);
     }
 
@@ -78,9 +75,11 @@ class SymbolTableTest {
         varDecl1.id = varIdTok;
         varDecl2.id = varIdTok;
 
-        symTab.addVar(varDecl1);
+        symTab.declareVariable(varDecl1);
         symTab.pushScope();
-        symTab.addVar(varDecl2);
+        assertDoesNotThrow( () ->
+            symTab.declareVariable(varDecl2)
+        );
     }
 
     @Test
@@ -89,20 +88,19 @@ class SymbolTableTest {
         String varName = "iAmDeep";
         varDecl.type = Type.DOUBLE;
         varDecl.id = new CommonToken(NotCParser.ID, varName);
-        symTab.addVar(varDecl);
-        int nScopes = 20;
-        for (int i = 0; i < nScopes; i++)
+        symTab.declareVariable(varDecl);
+        for (int i = 0; i < 20; i++)
             symTab.pushScope();
         Token varRef = new CommonToken(NotCParser.ID, varName);
         symTab.resolveVarReference(varRef);
-        assertSame(varDecl, symTab.lookupVar(varRef));
+        assertSame(varDecl, symTab.lookupVariable(varRef));
     }
 
     @Test
     void ResolveUndefinedVar_SemanticExceptionThrown() {
-        SemanticException thrown = assertThrows(SemanticException.class, () -> {
-            symTab.resolveVarReference(new CommonToken(NotCParser.ID, "undefVar"));
-        });
+        SemanticException thrown = assertThrows(SemanticException.class, () ->
+            symTab.resolveVarReference(new CommonToken(NotCParser.ID, "undefVar"))
+        );
         String actualMessage = thrown.getMessage();
         assertTrue(actualMessage.contains("Undefined variable"));
     }
@@ -114,12 +112,12 @@ class SymbolTableTest {
         varDecl.type = Type.INT;
         varDecl.id = new CommonToken(NotCParser.ID, varName);
         symTab.pushScope();
-        symTab.addVar(varDecl);
+        symTab.declareVariable(varDecl);
         symTab.popScope();
         Token varRef = new CommonToken(NotCParser.ID, varName);
-        SemanticException thrown = assertThrows(SemanticException.class, () -> {
-            symTab.resolveVarReference(varRef);
-        });
+        SemanticException thrown = assertThrows(SemanticException.class, () ->
+            symTab.resolveVarReference(varRef)
+        );
         String actualMessage = thrown.getMessage();
         assertTrue(actualMessage.contains("Undefined variable"));
     }
@@ -137,10 +135,10 @@ class SymbolTableTest {
         varDecl2.type = varType;
         varDecl2.id = new CommonToken(NotCParser.ID, varName);
 
-        symTab.addVar(varDecl1);
-        SemanticException thrown = assertThrows(SemanticException.class, () -> {
-            symTab.addVar(varDecl2);
-        });
+        symTab.declareVariable(varDecl1);
+        SemanticException thrown = assertThrows(SemanticException.class, () ->
+            symTab.declareVariable(varDecl2)
+        );
         String actualMessage = thrown.getMessage();
         assertTrue(actualMessage.contains("Redefinition of variable"));
 
@@ -148,12 +146,12 @@ class SymbolTableTest {
 
     @Test
     void AddVoidVar_SemanticExceptionThrown() {
-        SemanticException thrown = assertThrows(SemanticException.class, () -> {
-            VariableDeclarationContext varDecl = new VariableDeclarationContext(null, 0);
-            varDecl.type = Type.VOID;
-            varDecl.id = new CommonToken(NotCParser.ID, "varName");
-            symTab.addVar(varDecl);
-        });
+        VariableDeclarationContext varDecl = new VariableDeclarationContext(null, 0);
+        varDecl.type = Type.VOID;
+        varDecl.id = new CommonToken(NotCParser.ID, "varName");
+        SemanticException thrown = assertThrows(SemanticException.class, () ->
+            symTab.declareVariable(varDecl)
+        );
         String actualMessage = thrown.getMessage();
         assertTrue(actualMessage.contains("Variables cannot have type void"));
     }

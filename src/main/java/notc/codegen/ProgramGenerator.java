@@ -3,7 +3,6 @@ package notc.codegen;
 import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser.ProgramContext;
 import notc.antlrgen.NotCParser.FunctionDefinitionContext;
-import notc.antlrgen.NotCParser.StatementContext;
 import notc.semantics.SymbolTable;
 
 import org.apache.commons.io.IOUtils;
@@ -11,6 +10,7 @@ import org.apache.commons.text.TextStringBuilder;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 
 public class ProgramGenerator extends NotCBaseVisitor<String> {
@@ -34,13 +34,13 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
         try (InputStream is = classLoader.getResourceAsStream("boilerplate.jasm")) {
             finalOutput.appendln(IOUtils.toString(is, StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new RuntimeException("Shouldn't happen because file exists", e);
+            throw new UncheckedIOException("Shouldn't happen because file exists", e);
         }
 
         ExpressionGenerator exprGen = new ExpressionGenerator(symTab);
         FunctionGenerator funGen = new FunctionGenerator(exprGen);
 
-        // Generate JVM methods from parse trees rooted at function definitions
+        // Generates JVM methods from parse trees rooted at function definitions
         for (FunctionDefinitionContext funDef : prog.funDefs) {
             JvmMethod method = funGen.generate(funDef);
             finalOutput.appendln(method.collectCode());

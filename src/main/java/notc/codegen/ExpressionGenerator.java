@@ -16,13 +16,11 @@ import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 import notc.antlrgen.NotCParser.AndOrExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
-import notc.antlrgen.NotCParser.Signature;
+import notc.antlrgen.NotCParser.FunctionHeaderContext;
 import notc.semantics.SymbolTable;
 
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.ObjectUtils;
-
-import java.util.Map;
 
 class ExpressionGenerator extends NotCBaseVisitor<Void> {
     private final SymbolTable symTab;
@@ -117,7 +115,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Variable expression: look up its address and load it
     @Override
     public Void visitVariableExpression(VariableExpressionContext varExpr) {
-        int varAddr = targetMethod.addressOf(symTab.lookupVar(varExpr.varId));
+        int varAddr = targetMethod.addressOf(symTab.lookupVariable(varExpr.varId));
         String loadInstr = varExpr.type.prefix() + "load ";
         targetMethod.addInstruction(loadInstr + varAddr, varExpr.type.size());
         return null;
@@ -131,8 +129,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         for (ExpressionContext arg : funCallExpr.args)
             argsStackSize += generate(arg).size();
 
-        Signature signature = symTab.lookupFun(funCallExpr.id);
-        String descriptor = signature.methodDescriptor();
+        FunctionHeaderContext header = symTab.lookupFunction(funCallExpr.id);
+        String descriptor = header.descriptor;
         String invocation = "invokestatic Method " + funCallExpr.id.getText() + ":" + descriptor;
         int returnStackSize = funCallExpr.type.size();
                                                 // Arguments are popped, return value is pushed
@@ -214,7 +212,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
                                  targetMethod.addInstruction("if_icmpeq " + falseLabel, -2);
                                  targetMethod.addInstruction("goto " + trueLabel, 0);
                                  break;
-            default: throw new RuntimeException("Should be unreachable. Token: " + compExpr.op);
+            default: throw new IllegalArgumentException("Should be unreachable. Token: " + compExpr.op);
         }
         targetMethod.addInstruction(trueLabel + ":", 0);
         targetMethod.addInstruction("iconst_1", 1);
@@ -247,7 +245,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
         generate(assExpr.rhs); // Expression on the right of = goes on stack
-        int varAddr = targetMethod.addressOf(symTab.lookupVar(assExpr.varId));
+        int varAddr = targetMethod.addressOf(symTab.lookupVariable(assExpr.varId));
         String storeInstr = assExpr.type.prefix() + "store ";
         String dupInstr = formatDup(assExpr.type);
         int varSize = assExpr.type.size();
@@ -265,7 +263,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         int varSize = varType.size();
         Token opTok = ObjectUtils.firstNonNull(incrDecrExpr.preOp, incrDecrExpr.postOp);
         String operation = operationByToken(opTok);
-        int varAddr = targetMethod.addressOf(symTab.lookupVar(incrDecrExpr.varId));
+        int varAddr = targetMethod.addressOf(symTab.lookupVariable(incrDecrExpr.varId));
         targetMethod.addInstruction(varType.prefix() + "load " + varAddr, varSize);
         if (incrDecrExpr.postOp != null)
             targetMethod.addInstruction(dupInstr, varSize); // Leave previous value on stack
@@ -298,7 +296,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
             case NotCParser.NE:   return "ne";
             case NotCParser.AND:  return "and";
             case NotCParser.OR:   return "or";
-            default: throw new RuntimeException("Should be unreachable. Token: " + opTok);
+            default: throw new IllegalArgumentException("Should be unreachable. Token: " + opTok);
         }
     }
 
