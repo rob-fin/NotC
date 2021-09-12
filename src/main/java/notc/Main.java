@@ -1,132 +1,22 @@
 package notc;
 
-import notc.antlrgen.NotCLexer;
-import notc.antlrgen.NotCParser;
-import notc.semantics.ProgramChecker;
-import notc.semantics.SemanticException;
-import notc.semantics.SymbolTable;
-import notc.codegen.ProgramGenerator;
-
-import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.BaseErrorListener;
-import org.antlr.v4.runtime.Recognizer;
-import org.antlr.v4.runtime.RecognitionException;
-import org.antlr.v4.runtime.misc.ParseCancellationException;
-import org.antlr.v4.runtime.tree.ParseTree;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import com.google.common.io.Files;
-import com.google.common.io.MoreFiles;
+import org.apache.commons.io.FilenameUtils;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.PrintWriter;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
 
+// Validates command line input before calling the compiler
 public class Main {
+    private static final String LINE_SEP = System.lineSeparator();
 
-    // Compiles a NotC program given by parameter srcFile to Jasm assembly text,
-    // defining a single class with a name given by parameter className
-    private static String compile(Path srcFile, String className) {
-        ParseTree tree = null;
-        SymbolTable symTab = null;
-        try {
-            CharStream input = CharStreams.fromPath(srcFile);
-            BailingErrorListener listener = new BailingErrorListener();
-
-            // Lex and obtain tokens for the parser
-            NotCLexer lexer = new NotCLexer(input);
-            lexer.removeErrorListeners();
-            lexer.addErrorListener(listener);
-            CommonTokenStream tokens = new CommonTokenStream(lexer);
-
-            // Parse and optain AST for the later phases
-            NotCParser parser = new NotCParser(tokens);
-            parser.removeErrorListeners();
-            parser.addErrorListener(listener);
-            tree = parser.program();
-
-            // Perform semantic checks and obtain symbol table for the code generator
-            symTab = tree.accept(new ProgramChecker());
-        } catch (ParseCancellationException e) {
-            error("Syntax error:", e.getMessage());
-        } catch (SemanticException e) {
-            error("Semantic error:", e.getMessage());
-        } catch (IOException e) {
-            error(srcFile + ": No such file");
-        }
-        // Input program is valid: Generate Jasm assembly and return it
-        return tree.accept(new ProgramGenerator(symTab, className));
-    }
-
-    // Write Jasm assembly to a temporary file and assemble it
-    private static void assemble(String jasmText, String outputDir) {
-        try {
-            File jasmFile = File.createTempFile("temp", "jasm");
-            PrintWriter jasmWriter = new PrintWriter(jasmFile);
-            jasmWriter.print(jasmText);
-            jasmWriter.close();
-            String javaBin = System.getProperty("java.home")
-                           + File.separator + "bin"
-                           + File.separator + "java";
-            String classpath = System.getProperty("java.class.path");
-            List<String> jasmCmd = List.of(javaBin, "-cp", classpath,
-                                           "org.openjdk.asmtools.Main", "jasm",
-                                           "-d", outputDir,
-                                           jasmFile.getAbsolutePath());
-            Process proc = new ProcessBuilder(jasmCmd).inheritIO().start();
-            if (proc.waitFor() != 0)
-                error("Assembly failed:", jasmText);
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException("No intention to handle", e);
-        }
-    }
-
-    // Prints an error message and exits
-    private static void error(String... messages) {
-        System.err.println(String.join(System.lineSeparator(), messages));
-        System.exit(1);
-    }
-
-    // Entry point for the NotC compiler
     public static void main(String[] args) {
-        // Set up command line options
-        Options options = new Options();
-        options.addOption(Option.builder("c")
-            .longOpt("class")
-            .hasArg()
-            .argName("name")
-            .desc("Name of generated class. "
-                + System.lineSeparator()
-                + "Defaults to base name of source file.")
-            .build());
-        options.addOption(Option.builder("o")
-            .longOpt("output")
-            .hasArg()
-            .argName("dir")
-            .desc("Output directory of generated class file."
-                + System.lineSeparator()
-                + "Defaults to working directory of invoking process.")
-            .build());
-        options.addOption(Option.builder("j")
-            .longOpt("jasmin")
-            .desc("Also output intermediate Jasm assembly representation.")
-            .build());
-        options.addOption(Option.builder("h")
-            .longOpt("help")
-            .desc("Print this message and exit.")
-            .build());
-
-        // Parse command line
+        // Parses flags and their arguments
+        Options options = setUpOptions();
         CommandLine cmd = null;
         try {
             cmd = new DefaultParser().parse(options, args);
@@ -134,50 +24,82 @@ public class Main {
             error(e.getMessage());
         }
 
-        if (cmd.hasOption("h")) {
-            StringBuilder usage = new StringBuilder();
-            usage.append("java -jar NotC <options> <source file>");
-            usage.append(System.lineSeparator());
-            usage.append("where options include:");
-            new HelpFormatter().printHelp(usage.toString(), options);
-            System.exit(0);
+        if (cmd.hasOption("help")) {
+            printUsage(options);
+            return;
         }
 
-        // What should be left is the source file argument
-        String[] remainingCmdLine = cmd.getArgs();
-        if (remainingCmdLine.length < 1)
+        // What should be left is the source file
+        String[] remainingArgs = cmd.getArgs();
+        if (remainingArgs.length < 1) {
+            printUsage(options);
             error("Missing source file argument");
-        Path srcFile = Paths.get(remainingCmdLine[0]);
-
-        String className = cmd.getOptionValue("c", MoreFiles.getNameWithoutExtension(srcFile));
-        String legalClassName = "[a-zA-Z_]+[a-zA-Z0-9_]*";
-        if (!className.matches(legalClassName)) {
-            error(className + ": Illegal class name",
-                  "May contain letters, digits, and underscores, but not start with a digit");
         }
+        Path srcFile = Path.of(remainingArgs[0]);
 
-        String outputDir = cmd.getOptionValue("o", System.getProperty("user.dir"));
-        String jasmText = compile(srcFile, className);
-        assemble(jasmText, outputDir);
-        if (cmd.hasOption("j"))
-            System.out.println(jasmText);
-        System.exit(0);
+        String className = cmd.getOptionValue("class",
+            FilenameUtils.getBaseName(srcFile.toString())
+        );
+        if (!isLegalClassName(className))
+            error("Illegal class name");
+
+        String dirArg = cmd.getOptionValue("directory",
+            System.getProperty("user.dir")
+        );
+        Path destDir = Path.of(dirArg);
+
+        boolean result = new Compiler().compile(srcFile, className, destDir);
+        System.exit(result ? 0 : 1);
     }
 
-    // Error listener that stops the compiler at the first encountered lexical or parsing error
-    private static class BailingErrorListener extends BaseErrorListener {
+    private static void printUsage(Options options) {
+        String usage = String.join(LINE_SEP,
+            "java -jar notcc.jar <options> <source file>",
+            "where options include:"
+        );
+        new HelpFormatter().printHelp(usage, options);
+    }
 
-        @Override
-        public void syntaxError(Recognizer<?,?> recognizer,
-                                Object offendingSymbol,
-                                int line,
-                                int charPositionInLine,
-                                String msg,
-                                RecognitionException e) {
-            throw new ParseCancellationException("Line " + line + ":"
-                                               + charPositionInLine + ": " + msg);
+    private static boolean isLegalClassName(String s) {
+        if (!Character.isJavaIdentifierStart(s.charAt(0)))
+            return false;
+        int len = s.length();
+        for (int i = 1; i < len; ++i) {
+            if (!Character.isJavaIdentifierPart(s.charAt(i)))
+                return false;
         }
+        return true;
+    }
 
+    private static void error(String... messages) {
+        System.err.println(String.join(LINE_SEP, messages));
+        System.exit(1);
+    }
+
+    private static Options setUpOptions() {
+        Options options = new Options();
+        options.addOption(Option.builder("c")
+            .longOpt("class")
+            .hasArg()
+            .argName("name")
+            .desc("Name of generated class." +
+                  LINE_SEP +
+                  "Defaults to base name of source file.")
+            .build());
+        options.addOption(Option.builder("d")
+            .longOpt("directory")
+            .hasArg()
+            .argName("path")
+            .desc("Destination directory of generated class file." +
+                  LINE_SEP +
+                  "Defaults to working directory of invoking process.")
+            .build());
+        options.addOption(Option.builder("h")
+            .longOpt("help")
+            .desc("Print this message and exit.")
+            .build());
+
+        return options;
     }
 
 }
