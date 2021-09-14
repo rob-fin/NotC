@@ -17,10 +17,13 @@ import notc.antlrgen.NotCParser.ComparisonExpressionContext;
 import notc.antlrgen.NotCParser.AndOrExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.FunctionHeaderContext;
+import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.semantics.SymbolTable;
 
 import org.antlr.v4.runtime.Token;
 import org.apache.commons.lang3.ObjectUtils;
+
+import java.util.Map;
 
 class ExpressionGenerator extends NotCBaseVisitor<Void> {
     private final SymbolTable symTab;
@@ -47,11 +50,11 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         Type from = expr.type;
         Type to = expr.runtimeConversion;
         if (to.isDouble())
-            targetMethod.addInstruction("i2d", 1); // Widens
+            targetMethod.emit(Opcode.I2D); // Widens
         else if (from.isDouble() && to.isInt())
-            targetMethod.addInstruction("d2i", -1); // Truncates
+            targetMethod.emit(Opcode.D2I); // Truncates
         else if (!to.isBool())
-            ; // Nothing else to do
+            ; // Nothing to do
         else if (from.isInt())
             intToBool();
         else
@@ -59,11 +62,12 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
 
         return to;
     }
+
     // Converts a double at the top of the stack to 0 or 1
     private void doubleToBool() {
         // 0.0 -> 0,  nonzero double -> nonzero int
-        targetMethod.addInstruction("ldc2_w 0.0", 2);
-        targetMethod.addInstruction("dcmpg", -1);
+        targetMethod.emit(Opcode.LDC2_W, "0.0");
+        targetMethod.emit(Opcode.DCMPG);
 
         intToBool();
     }
@@ -71,70 +75,69 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Converts a nonzero int at the top of the stack to 1
     private void intToBool() {
         // (value | -value) >> 31
-        targetMethod.addInstruction("dup", 1);
-        targetMethod.addInstruction("ineg", 0);
-        targetMethod.addInstruction("ior", -1);
-        targetMethod.addInstruction("ldc 31", 1);
-        targetMethod.addInstruction("iushr", -1);
+        targetMethod.emit(Opcode.DUP);
+        targetMethod.emit(Opcode.INEG);
+        targetMethod.emit(Opcode.IOR);
+        targetMethod.emit(Opcode.LDC, "31");
+        targetMethod.emit(Opcode.IUSHR);
     }
 
-    // Literals: instructions to put constant values on the stack
+    // Literals: operations to put constant values on the stack
     @Override
     public Void visitFalseLiteralExpression(FalseLiteralExpressionContext falseLiteralExpr) {
-        targetMethod.addInstruction("ldc 0", 1);
+        targetMethod.emit(Opcode.ICONST_0);
         return null;
     }
 
     @Override
     public Void visitTrueLiteralExpression(TrueLiteralExpressionContext trueLiteralExpr) {
-        targetMethod.addInstruction("ldc 1", 1);
+        targetMethod.emit(Opcode.ICONST_1);
         return null;
     }
 
     @Override
     public Void visitDoubleLiteralExpression(DoubleLiteralExpressionContext doubleLiteralExpr) {
         String srcText = doubleLiteralExpr.value.getText();
-        targetMethod.addInstruction("ldc2_w " + srcText, 2);
+        targetMethod.emit(Opcode.LDC2_W, srcText);
         return null;
     }
 
     @Override
     public Void visitIntLiteralExpression(IntLiteralExpressionContext intLitExpr) {
         String srcText = intLitExpr.value.getText();
-        targetMethod.addInstruction("ldc " + srcText, 1);
+        targetMethod.emit(Opcode.LDC, srcText);
         return null;
     }
 
     @Override
     public Void visitStringLiteralExpression(StringLiteralExpressionContext strLiteralExpr) {
         String srcText = strLiteralExpr.value.getText();
-        targetMethod.addInstruction("ldc " + srcText, 1);
+        targetMethod.emit(Opcode.LDC, srcText);
         return null;
     }
 
-    // Variable expression: look up its address and load it
+    // Loads the variable referenced by the expression
     @Override
     public Void visitVariableExpression(VariableExpressionContext varExpr) {
         int varAddr = targetMethod.addressOf(symTab.lookupVariable(varExpr.varId));
-        String loadInstr = varExpr.type.prefix() + "load ";
-        targetMethod.addInstruction(loadInstr + varAddr, varExpr.type.size());
+        Opcode loadOp = loadOpByType.get(varExpr.type);
+        targetMethod.emit(loadOp,  Integer.toString(varAddr));
         return null;
     }
 
-    // Function calls
     @Override
     public Void visitFunctionCallExpression(FunctionCallExpressionContext funCallExpr) {
         // Put all arguments on stack and calculate their size
         int argsStackSize = 0;
         for (ExpressionContext arg : funCallExpr.args)
             argsStackSize += generate(arg).size();
-
         FunctionHeaderContext header = symTab.lookupFunction(funCallExpr.id);
         String descriptor = header.descriptor;
-        String invocation = "invokestatic Method " + funCallExpr.id.getText() + ":" + descriptor;
+        String invocationOpnd = "Method " + funCallExpr.id.getText() + ":" + descriptor;
         int returnStackSize = funCallExpr.type.size();
-                                                // Arguments are popped, return value is pushed
-        targetMethod.addInstruction(invocation, returnStackSize - argsStackSize);
+        // Arguments are popped, return value is pushed
+        int stackChange = returnStackSize - argsStackSize;
+        targetMethod.emit(Opcode.INVOKESTATIC, stackChange, invocationOpnd);
         return null;
     }
 
@@ -145,11 +148,20 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         // Generate operands
         generate(arithmExpr.opnd1);
         generate(arithmExpr.opnd2);
-        int stackChange = -arithmExpr.type.size(); // Stack: |type| |type| -> |type|
-        char typePrefix  = arithmExpr.type.prefix();
-        String operation = operationByToken(arithmExpr.op);
-        targetMethod.addInstruction(typePrefix + operation, stackChange);
+        Opcode op = getArithmeticOp(arithmExpr.op, arithmExpr.type);
+        targetMethod.emit(op);
         return null;
+    }
+// TODO: maybe break up arithmetic parser rules to avoid this
+    private Opcode getArithmeticOp(Token tok, Type t) {
+        switch (tok.getType()) {
+            case NotCParser.ADD: return t.isInt() ? Opcode.IADD : Opcode.DADD;
+            case NotCParser.SUB: return t.isInt() ? Opcode.ISUB : Opcode.DSUB;
+            case NotCParser.MUL: return t.isInt() ? Opcode.IMUL : Opcode.DMUL;
+            case NotCParser.DIV: return t.isInt() ? Opcode.IDIV : Opcode.DDIV;
+            case NotCParser.REM: return t.isInt() ? Opcode.IREM : Opcode.DREM;
+            default: throw new IllegalArgumentException("Should be unreachable. Token: " + tok);
+        }
     }
 
     @Override
@@ -164,80 +176,99 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return null;
     }
 
+    // Simply uses "if_icmp{lt|gt|ge|le|eq|ne}"
     private void generateIntComparison(ComparisonExpressionContext compExpr) {
         String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        String operation = operationByToken(compExpr.op);
-        targetMethod.addInstruction("if_icmp" + operation + " " + trueLabel, -2);
-        targetMethod.addInstruction("iconst_0", 1); // false
-        targetMethod.addInstruction("goto " + endLabel, 0);
-        targetMethod.addInstruction(trueLabel + ":", 0);
-        targetMethod.addInstruction("iconst_1", 1); // true
-        targetMethod.addInstruction(endLabel + ":", 0);
+        Opcode compJmp = comparisonByToken(compExpr.op);
+        targetMethod.emit(compJmp, trueLabel);
+        targetMethod.emit(Opcode.ICONST_0);
+        targetMethod.emit(Opcode.GOTO, endLabel);
+        targetMethod.insertLabel(trueLabel);
+        targetMethod.emit(Opcode.ICONST_1);
+        targetMethod.insertLabel(endLabel);
     }
 
+    private Opcode comparisonByToken(Token tok) {
+        switch (tok.getType()) {
+            case NotCParser.LT: return Opcode.IF_ICMPLT;
+            case NotCParser.GT: return Opcode.IF_ICMPGT;
+            case NotCParser.GE: return Opcode.IF_ICMPGE;
+            case NotCParser.LE: return Opcode.IF_ICMPLE;
+            case NotCParser.EQ: return Opcode.IF_ICMPEQ;
+            case NotCParser.NE: return Opcode.IF_ICMPNE;
+            default: throw new IllegalArgumentException("Should be unreachable. Token: " + tok);
+        }
+    }
+
+    // "dcmpg" is trickier
     private void generateDoubleComparison(ComparisonExpressionContext compExpr) {
         String trueLabel = targetMethod.newLabel();
         String falseLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        targetMethod.addInstruction("dcmpg", -3); // stack: d d -> i
+        targetMethod.emit(Opcode.DCMPG);
         switch (compExpr.op.getType()) {
-            case NotCParser.LT:  // a < b -> TOS = -1
-                                 targetMethod.addInstruction("iconst_m1", 1);
-                                 targetMethod.addInstruction("if_icmpeq " + trueLabel, -2);
-                                 targetMethod.addInstruction("goto " + falseLabel, 0);
-                                 break;
-            case NotCParser.GT:  // a > b -> TOS = 1
-                                 targetMethod.addInstruction("iconst_1", 1);
-                                 targetMethod.addInstruction("if_icmpeq " + trueLabel, -2);
-                                 targetMethod.addInstruction("goto " + falseLabel, 0);
-                                 break;
-            case NotCParser.GE:  // a >= b -> TOS != -1
-                                 targetMethod.addInstruction("iconst_m1", 1);
-                                 targetMethod.addInstruction("if_icmpeq " + falseLabel, -2);
-                                 targetMethod.addInstruction("goto " + trueLabel, 0);
-                                 break;
-            case NotCParser.LE:  // a <= b -> TOS != 1
-                                 targetMethod.addInstruction("iconst_1", 1);
-                                 targetMethod.addInstruction("if_icmpeq " + falseLabel, -2);
-                                 targetMethod.addInstruction("goto " + trueLabel, 0);
-                                 break;
-            case NotCParser.EQ:  // a = b -> TOS = 0
-                                 targetMethod.addInstruction("iconst_0", 1);
-                                 targetMethod.addInstruction("if_icmpeq " + trueLabel, -2);
-                                 targetMethod.addInstruction("goto " + falseLabel, 0);
-                                 break;
-            case NotCParser.NE:  // a != b -> TOS != 0
-                                 targetMethod.addInstruction("iconst_0", 1);
-                                 targetMethod.addInstruction("if_icmpeq " + falseLabel, -2);
-                                 targetMethod.addInstruction("goto " + trueLabel, 0);
-                                 break;
-            default: throw new IllegalArgumentException("Should be unreachable. Token: " + compExpr.op);
+            case NotCParser.LT: // a < b -> TOS = -1
+                                targetMethod.emit(Opcode.ICONST_M1);
+                                targetMethod.emit(Opcode.IF_ICMPEQ, trueLabel);
+                                targetMethod.emit(Opcode.GOTO, falseLabel);
+                                break;
+            case NotCParser.GT: // a > b -> TOS = 1
+                                targetMethod.emit(Opcode.ICONST_1);
+                                targetMethod.emit(Opcode.IF_ICMPEQ, trueLabel);
+                                targetMethod.emit(Opcode.GOTO, falseLabel);
+                                break;
+            case NotCParser.GE: // a >= b -> TOS != -1
+                                targetMethod.emit(Opcode.ICONST_M1);
+                                targetMethod.emit(Opcode.IF_ICMPEQ, falseLabel);
+                                targetMethod.emit(Opcode.GOTO, trueLabel);
+                                break;
+            case NotCParser.LE: // a <= b -> TOS != 1
+                                targetMethod.emit(Opcode.ICONST_1);
+                                targetMethod.emit(Opcode.IF_ICMPEQ, falseLabel);
+                                targetMethod.emit(Opcode.GOTO, trueLabel);
+                                break;
+            case NotCParser.EQ: // a = b -> TOS = 0
+                                targetMethod.emit(Opcode.ICONST_0);
+                                targetMethod.emit(Opcode.IF_ICMPEQ, trueLabel);
+                                targetMethod.emit(Opcode.GOTO, falseLabel);
+                                break;
+            case NotCParser.NE: // a != b -> TOS != 0
+                                targetMethod.emit(Opcode.ICONST_0);
+                                targetMethod.emit(Opcode.IF_ICMPEQ, falseLabel);
+                                targetMethod.emit(Opcode.GOTO, trueLabel);
+                                break;
+            default: throw new IllegalArgumentException("Should be unreachable. Token: " +
+                                                        compExpr.op);
         }
-        targetMethod.addInstruction(trueLabel + ":", 0);
-        targetMethod.addInstruction("iconst_1", 1);
-        targetMethod.addInstruction("goto " + endLabel, 0);
-        targetMethod.addInstruction(falseLabel + ":", 0);
-        targetMethod.addInstruction("iconst_0", 1);
-        targetMethod.addInstruction(endLabel + ":", 0);
+        targetMethod.insertLabel(trueLabel);
+        targetMethod.emit(Opcode.ICONST_1);
+        targetMethod.emit(Opcode.GOTO, endLabel);
+        targetMethod.insertLabel(falseLabel);
+        targetMethod.emit(Opcode.ICONST_0);
+        targetMethod.insertLabel(endLabel);
     }
 
     // Use bitwise and/or on operands and check if result is 0
     @Override
     public Void visitAndOrExpression(AndOrExpressionContext andOrExpr) {
-        String operation = 'i' + operationByToken(andOrExpr.op);
-        String falseLabel = targetMethod.newLabel();
+        Opcode op;
+        if (andOrExpr.op.getType() == NotCParser.AND)
+            op = Opcode.IAND;
+        else
+            op = Opcode.IOR;
+        String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
         // Put operands on stack
         generate(andOrExpr.opnd1);
         generate(andOrExpr.opnd2);
-        targetMethod.addInstruction(operation, -1); // Stack: i i -> i
-        targetMethod.addInstruction("ifeq " + falseLabel, -1);
-        targetMethod.addInstruction("iconst_1", 1);
-        targetMethod.addInstruction("goto " + endLabel, 0);
-        targetMethod.addInstruction(falseLabel + ":", 0);
-        targetMethod.addInstruction("iconst_0", 1);
-        targetMethod.addInstruction(endLabel + ":", 0);
+        targetMethod.emit(op);
+        targetMethod.emit(Opcode.IFNE, trueLabel);
+        targetMethod.emit(Opcode.ICONST_0);
+        targetMethod.emit(Opcode.GOTO, endLabel);
+        targetMethod.insertLabel(trueLabel);
+        targetMethod.emit(Opcode.ICONST_1);
+        targetMethod.insertLabel(endLabel);
         return null;
     }
 
@@ -245,59 +276,51 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
         generate(assExpr.rhs); // Expression on the right of = goes on stack
-        int varAddr = targetMethod.addressOf(symTab.lookupVariable(assExpr.varId));
-        String storeInstr = assExpr.type.prefix() + "store ";
-        String dupInstr = formatDup(assExpr.type);
-        int varSize = assExpr.type.size();
+        VariableDeclarationContext varDecl = symTab.lookupVariable(assExpr.varId);
+        int varAddr = targetMethod.addressOf(varDecl);
+        Opcode storeOp = storeOpByType.get(varDecl.type);
+        Opcode dupOp = varDecl.type.isDouble() ? Opcode.DUP2 : Opcode.DUP;
         // Stored value is value of expression and is left on stack
-        targetMethod.addInstruction(dupInstr, varSize);
-        targetMethod.addInstruction(storeInstr + varAddr, -varSize);
+        targetMethod.emit(dupOp);
+        targetMethod.emit(storeOp, Integer.toString(varAddr));
         return null;
     }
 
     @Override
     public Void visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
         Type varType = incrDecrExpr.type;
-        char typePrefix = varType.prefix();
-        String dupInstr = formatDup(varType);
-        int varSize = varType.size();
+        Opcode dupOp = varType.isDouble() ? Opcode.DUP2 : Opcode.DUP;
         Token opTok = ObjectUtils.firstNonNull(incrDecrExpr.preOp, incrDecrExpr.postOp);
-        String operation = operationByToken(opTok);
+        Opcode arithmOp;
+        if (opTok.getType() == NotCParser.INCR)
+            arithmOp = varType.isInt() ? Opcode.IADD : Opcode.DADD;
+        else
+            arithmOp = varType.isInt() ? Opcode.ISUB : Opcode.DSUB;
         int varAddr = targetMethod.addressOf(symTab.lookupVariable(incrDecrExpr.varId));
-        targetMethod.addInstruction(varType.prefix() + "load " + varAddr, varSize);
+        targetMethod.emit(loadOpByType.get(varType), Integer.toString(varAddr));
         if (incrDecrExpr.postOp != null)
-            targetMethod.addInstruction(dupInstr, varSize); // Leave previous value on stack
-        targetMethod.addInstruction(typePrefix + "const_1", varSize);
-        targetMethod.addInstruction(typePrefix + operation, -varSize);
+            targetMethod.emit(dupOp); // Leave previous value on stack
+        Opcode const1 = varType.isInt() ? Opcode.ICONST_1 : Opcode.DCONST_1;
+        targetMethod.emit(const1);
+        targetMethod.emit(arithmOp);
         if (incrDecrExpr.preOp != null)
-            targetMethod.addInstruction(dupInstr, varSize); // Leave new value on stack
-        targetMethod.addInstruction(varType.prefix() + "store " + varAddr, -varSize);
+            targetMethod.emit(dupOp); // Leave new value on stack
+        targetMethod.emit(storeOpByType.get(varType), Integer.toString(varAddr));
         return null;
     }
 
-    private String formatDup(Type t) {
-        return (t.isDouble()) ? "dup2" : "dup";
-    }
+    private static final Map<Type,Opcode> storeOpByType = Map.of(
+        Type.BOOL,   Opcode.ISTORE,
+        Type.INT,    Opcode.ISTORE,
+        Type.STRING, Opcode.ASTORE,
+        Type.DOUBLE, Opcode.DSTORE
+    );
 
-    private String operationByToken(Token opTok) {
-        switch (opTok.getType()) {
-            case NotCParser.MUL:  return "mul";
-            case NotCParser.DIV:  return "div";
-            case NotCParser.REM:  return "rem";
-            case NotCParser.INCR:
-            case NotCParser.ADD:  return "add";
-            case NotCParser.DECR:
-            case NotCParser.SUB:  return "sub";
-            case NotCParser.LT:   return "lt";
-            case NotCParser.GT:   return "gt";
-            case NotCParser.GE:   return "ge";
-            case NotCParser.LE:   return "le";
-            case NotCParser.EQ:   return "eq";
-            case NotCParser.NE:   return "ne";
-            case NotCParser.AND:  return "and";
-            case NotCParser.OR:   return "or";
-            default: throw new IllegalArgumentException("Should be unreachable. Token: " + opTok);
-        }
-    }
+    private static final Map<Type,Opcode> loadOpByType = Map.of(
+        Type.BOOL,   Opcode.ILOAD,
+        Type.INT,    Opcode.ILOAD,
+        Type.STRING, Opcode.ALOAD,
+        Type.DOUBLE, Opcode.DLOAD
+    );
 
 }

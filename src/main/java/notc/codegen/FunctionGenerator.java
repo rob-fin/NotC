@@ -13,6 +13,8 @@ import notc.antlrgen.NotCParser.IfStatementContext;
 import notc.antlrgen.NotCParser.IfElseStatementContext;
 import notc.antlrgen.NotCParser.ReturnStatementContext;
 
+import java.util.Map;
+
 class FunctionGenerator extends NotCBaseVisitor<Void> {
     private final ExpressionGenerator exprGen;
     private JvmMethod targetMethod;
@@ -24,16 +26,15 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
     // Entry point. Sets up target and generates the statements.
     JvmMethod generate(FunctionDefinitionContext funDef) {
         String name = funDef.header.id.getText();
-        String descriptor = funDef.header.descriptor;
-        String specification = name + ":" + descriptor;
+        String specification = name + ":" + funDef.header.descriptor;
         targetMethod = JvmMethod.from(specification);
         targetMethod.reserveVarMemory(funDef.header.params);
         exprGen.setTarget(targetMethod);
         for (StatementContext stm : funDef.body)
             stm.accept(this);
-        // Don't fall off the end of the code
+        // Avoids falling off the end of the code
         if (funDef.header.returnType.isVoid())
-            targetMethod.addInstruction("return", 0);
+            targetMethod.emit(Opcode.RETURN);
         return targetMethod;
     }
 
@@ -47,31 +48,30 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
     // "type id = expr"
     @Override
     public Void visitInitializationStatement(InitializationStatementContext initStm) {
-        // Get an address
         targetMethod.reserveVarMemory(initStm.varDecl);
         int varAddr = targetMethod.addressOf(initStm.varDecl);
         // Generate initializing expression and store result
         exprGen.generate(initStm.expr);
-        Type varType = initStm.varDecl.type;
-        targetMethod.addInstruction(varType.prefix() + "store " + varAddr, -varType.size());
+        Opcode storeOp = storeOpByType.get(initStm.varDecl.type);
+        targetMethod.emit(storeOp, Integer.toString(varAddr));
         return null;
     }
+
+    private static final Map<Type,Opcode> storeOpByType = Map.of(
+        Type.BOOL,   Opcode.ISTORE,
+        Type.INT,    Opcode.ISTORE,
+        Type.STRING, Opcode.ASTORE,
+        Type.DOUBLE, Opcode.DSTORE
+    );
 
     // Expression used as statement
     @Override
     public Void visitExpressionStatement(ExpressionStatementContext exprStm) {
         Type exprType = exprGen.generate(exprStm.expr);
         // Value is not used and should be popped
-        String popInstr;
-        switch (exprType) {
-            case DOUBLE: popInstr = "pop2"; break;
-            case INT:
-            case BOOL:
-            case STRING: popInstr = "pop";  break;
-            case VOID:   return null; // Leaves nothing on stack anyway
-            default: throw new IllegalArgumentException("Should be unreachable. Type: " + exprType);
-        }
-        targetMethod.addInstruction(popInstr, -exprType.size());
+        if (exprType.isVoid()) return null; // Leaves nothing on stack anyway
+        Opcode popOp = exprType.isDouble() ? Opcode.POP2 : Opcode.POP;
+        targetMethod.emit(popOp);
         return null;
     }
 
@@ -86,12 +86,12 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
     public Void visitWhileStatement(WhileStatementContext whileStm) {
         String testLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        targetMethod.addInstruction(testLabel + ":", 0);
+        targetMethod.insertLabel(testLabel);
         exprGen.generate(whileStm.conditionExpr);
-        targetMethod.addInstruction("ifeq " + endLabel, -1); // "if TOS = 0"
+        targetMethod.emit(Opcode.IFEQ, endLabel); // "if TOS = 0"
         whileStm.loopedStm.accept(this);
-        targetMethod.addInstruction("goto " + testLabel, 0);
-        targetMethod.addInstruction(endLabel + ":", 0);
+        targetMethod.emit(Opcode.GOTO, testLabel);
+        targetMethod.insertLabel(endLabel);
         return null;
     }
 
@@ -100,11 +100,11 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
         String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
         exprGen.generate(ifStm.conditionExpr);
-        targetMethod.addInstruction("ifne " + trueLabel, -1); // "if TOS != 0"
-        targetMethod.addInstruction("goto " + endLabel, 0);
-        targetMethod.addInstruction(trueLabel + ":", 0);
+        targetMethod.emit(Opcode.IFNE, trueLabel); // "if TOS != 0"
+        targetMethod.emit(Opcode.GOTO, endLabel);
+        targetMethod.insertLabel(trueLabel);
         ifStm.consequentStm.accept(this);
-        targetMethod.addInstruction(endLabel + ":", 0);
+        targetMethod.insertLabel(endLabel);
         return null;
     }
 
@@ -113,23 +113,29 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
         String falseLabel = targetMethod.newLabel();
         String trueLabel = targetMethod.newLabel();
         exprGen.generate(ifElseStm.conditionExpr);
-        targetMethod.addInstruction("ifeq " + falseLabel, -1);
+        targetMethod.emit(Opcode.IFEQ, falseLabel);
         ifElseStm.consequentStm.accept(this);
-        targetMethod.addInstruction("goto " + trueLabel, 0);
-        targetMethod.addInstruction(falseLabel + ":", 0);
+        targetMethod.emit(Opcode.GOTO, trueLabel);
+        targetMethod.insertLabel(falseLabel);
         ifElseStm.altStm.accept(this);
-        targetMethod.addInstruction(trueLabel + ":", 0);
+        targetMethod.insertLabel(trueLabel);
         return null;
     }
 
     @Override
     public Void visitReturnStatement(ReturnStatementContext returnStm) {
-        if (returnStm.expr == null) { // void return
-            targetMethod.addInstruction("return", 0);
-            return null;
-        }
         Type returnedType = exprGen.generate(returnStm.expr);
-        targetMethod.addInstruction(returnedType.prefix() + "return", -returnedType.size());
+        Opcode returnOp = returnOpByType.get(returnedType);
+        targetMethod.emit(returnOp);
         return null;
     }
+
+    private final Map<Type,Opcode> returnOpByType = Map.of(
+        Type.BOOL,   Opcode.IRETURN,
+        Type.INT,    Opcode.IRETURN,
+        Type.STRING, Opcode.ARETURN,
+        Type.DOUBLE, Opcode.DRETURN,
+        Type.VOID,   Opcode.RETURN
+    );
+
 }

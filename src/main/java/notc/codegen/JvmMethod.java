@@ -8,13 +8,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
-// Models JVM methods. Instantiated as code generator targets.
+// Instantiated as code generator targets. Tracks state of method being generated.
 class JvmMethod {
-    // Updated as instructions are added
-    private int nextVarAddress = 0;
-    private int currentStack   = 0;
-    private int maxStack       = 0;
-    private int nextLabel      = 0;
+    private int nextVarAddress    = 0;
+    private int currentStackDepth = 0;
+    private int maxStackDepth     = 0;
+    private int nextLabel         = 0;
 
     private String specification;
     private TextStringBuilder body;
@@ -30,13 +29,6 @@ class JvmMethod {
         return method;
     }
 
-    // Add an instruction to the body and update stack accordingly
-    void addInstruction(String instruction, int stackChange) {
-        body.appendln(instruction + ";");
-        currentStack += stackChange;
-        maxStack = Math.max(maxStack, currentStack);
-    }
-
     void reserveVarMemory(VariableDeclarationContext varDecl) {
         varAddresses.put(varDecl, nextVarAddress);
         nextVarAddress += varDecl.type.size();
@@ -45,6 +37,24 @@ class JvmMethod {
     void reserveVarMemory(List<VariableDeclarationContext> varDecls) {
         for (VariableDeclarationContext decl : varDecls)
             reserveVarMemory(decl);
+    }
+
+    void emit(Opcode op, String... operands) {
+        addInstruction(op.mnemonic, op.defaultStackChange, operands);
+    }
+
+    void emit(Opcode op, int contextualStackChange, String...operands) {
+        addInstruction(op.mnemonic, contextualStackChange, operands);
+    }
+
+    // Add an instruction to the body and update stack accordingly
+    private void addInstruction(String mnemonic, int stackChange, String... operands) {
+        body.append(mnemonic);
+        for (String o : operands)
+            body.append(" " + o);
+        body.appendln(";");
+        currentStackDepth += stackChange;
+        maxStackDepth = Math.max(maxStackDepth, currentStackDepth);
     }
 
     int addressOf(VariableDeclarationContext varDecl) {
@@ -56,9 +66,13 @@ class JvmMethod {
         return "L" + nextLabel++;
     }
 
+    void insertLabel(String l) {
+        body.appendln(l + ":");
+    }
+
     String collectCode() {
         return "public static Method " + specification +
-               "stack " + maxStack + " locals " + nextVarAddress +
+               "stack " + maxStackDepth + " locals " + nextVarAddress +
                "{" + body + "}";
     }
 

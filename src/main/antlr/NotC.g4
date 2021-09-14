@@ -15,15 +15,23 @@ import java.util.Set;
 
 @parser::members {
     public enum Type {
-        STRING,
-        VOID,
-        DOUBLE,
-        INT,
-        BOOL;
+        STRING(1, "Ljava/lang/String;"),
+        VOID(0, "V"),
+        DOUBLE(2, "D"),
+        INT(1, "I"),
+        BOOL(1, "Z");
 
         private static final Set<Type> CONVERTIBLES = Set.of(
             BOOL, DOUBLE, INT
         );
+
+        private final int size;
+        private final String descriptor;
+
+        private Type(int size, String descriptor) {
+            this.size = size;
+            this.descriptor = descriptor;
+        }
 
         public boolean isBool() {
             return compareTo(BOOL) == 0;
@@ -53,33 +61,12 @@ import java.util.Set;
             return CONVERTIBLES.contains(this) && CONVERTIBLES.contains(t);
         }
 
-        public char prefix() {
-            switch (this) {
-                case STRING: return 'a';
-                case DOUBLE: return 'd';
-                case INT:
-                case BOOL:   return 'i'; // Treated as integer
-                default:     return ' ';
-            }
-        }
-
         public String descriptor() {
-            switch (this) {
-                case BOOL:   return "Z";
-                case VOID:   return "V";
-                case STRING: return "Ljava/lang/String;";
-                case INT:    return "I";
-                case DOUBLE: return "D";
-                default:     return "";
-            }
+            return descriptor;
         }
 
         public int size() {
-            if (isDouble())
-                return 2;
-            if (isVoid())
-                return 0;
-            return 1;
+            return size;
         }
 
         // Resolves abstract syntax types to instances
@@ -122,7 +109,6 @@ import java.util.Set;
             return name().toLowerCase();
         }
     }
-
 }
 
 
