@@ -1,121 +1,120 @@
 package notc;
 
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.filefilter.SuffixFileFilter;
 import com.google.common.math.DoubleMath;
 import com.google.common.primitives.Doubles;
 import com.google.common.primitives.Ints;
 import com.github.stefanbirkner.systemlambda.SystemLambda;
+import org.jooq.lambda.Unchecked;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.io.OutputStream;
-import java.io.BufferedWriter;
+import java.nio.file.Path;
+import java.nio.file.Files;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import java.util.function.Function;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-import static java.nio.charset.StandardCharsets.UTF_8;
+import java.util.stream.Stream;
 
-// The compiler is run with a lot of test program source files: ones that should compile, ones that
+// Runs the compiler with test program source files: ones that should compile, ones that
 // should be rejected by the parser, and ones that should be rejected during semantic analysis.
-// The class expects that files in these test categories reside on the classpath in directories
-// named "valid_programs", "syntax_errors", and "semantic_errors". Syntax errors rejected during
-// semantic analysis and semantic errors rejected by the parser are considered failed tests.
-// The successfully compiled programs are then executed and their outputs checked.
+// Semantic errors rejected by the parser and syntax errors rejected during semantic analysis
+// are considered failed tests.
+// The valid programs that compiled are then executed and their outputs checked.
+@TestInstance(Lifecycle.PER_CLASS)
+@TestMethodOrder(OrderAnnotation.class)
 class ProgramsTest {
+    private final ClassLoader cl = ProgramsTest.class.getClassLoader();
+    // Test directories
+    private final Path syntaxErrors   = Path.of(cl.getResource("syntax_errors").getFile());
+    private final Path semanticErrors = Path.of(cl.getResource("semantic_errors").getFile());
+    private final Path validPrograms  = Path.of(cl.getResource("valid_programs").getFile());
 
-    private ClassLoader classLoader = getClass().getClassLoader();
 
-    // Iterate over the source files in the test directories and run the compiler with them.
-    // For each file run, capture the compiler's System.err output and check it
-    // against the expected output for the category to which the file belongs.
-    @Test
+    // Compilation tests
+
     @Order(1)
-    void compilePrograms() throws Exception { // Exception from SystemLambda
-
-        // Test category -> Assertion function over compiler error messages
-        Map<String,Function<String,Boolean>> assertorByCategory = Map.of(
-            "valid_programs",  sysErr -> sysErr.isEmpty(),
-            "syntax_errors",   sysErr -> sysErr.startsWith("Syntax error"),
-            "semantic_errors", sysErr -> sysErr.startsWith("Semantic error")
+    @ParameterizedTest
+    @MethodSource("provideTestSources")
+    void compileProgram(Path srcFile) throws Exception {
+        String className = FilenameUtils.getBaseName(srcFile.toString());
+        Path testDir = srcFile.getParent();
+        String sysErr = SystemLambda.tapSystemErr( () ->
+            new Compiler().compile(srcFile, className, testDir)
         );
-
-        SuffixFileFilter notcFilter = new SuffixFileFilter("notc");
-
-        for (String testCategory : assertorByCategory.keySet()) {
-            String categoryPath = classLoader.getResource(testCategory).getFile();
-            File testDir = new File(categoryPath);
-            Function<String,Boolean> assertor = assertorByCategory.get(testCategory);
-
-            for (File sourceFile : FileUtils.listFiles(testDir, notcFilter, null)) {
-                String filePath = sourceFile.getAbsolutePath();
-                // Instead of launching a new process (and JVM) for every file:
-                // Call main method and prevent JVM from terminating.
-                String sysErr = SystemLambda.tapSystemErr( () -> {
-                    SystemLambda.catchSystemExit( () -> {
-                        Main.main(new String[]{"-o", categoryPath, filePath});
-                    });
-                });
-                assertTrue(assertor.apply(sysErr), sourceFile.getName() + " in " + testCategory + ":" +
-                                                   System.lineSeparator() +
-                                                   FileUtils.readFileToString(sourceFile, UTF_8) +
-                                                   System.lineSeparator() +
-                                                   "Compiler's System.err: " + sysErr);
-            }
-        }
+        Function<String,Boolean> oracle = oracleByTestDirectory.get(testDir);
+        assertTrue(oracle.apply(sysErr), "Compiler wrote the following to System.err: " + sysErr);
     }
 
-    // Run the programs that compiled
-    @Test
+    private Stream<Arguments> provideTestSources() {
+        return Stream.of(syntaxErrors, semanticErrors, validPrograms)
+            .map(Unchecked.function(Files::list))
+            .flatMap(pathStream -> pathStream)
+            .filter(path -> path.toString().endsWith(".notc"))
+            .map(Arguments::of);
+    }
+
+    private final Map<Path,Function<String,Boolean>> oracleByTestDirectory = Map.of(
+        syntaxErrors,   sysErr -> sysErr.startsWith("Syntax error"),
+        semanticErrors, sysErr -> sysErr.startsWith("Semantic error"),
+        validPrograms,  String::isEmpty
+    );
+
+
+    // Execution tests
+
     @Order(2)
-    void runValidPrograms() throws IOException, InterruptedException {
-        String javaBin = System.getProperty("java.home") +
-                         File.separator + "bin" +
-                         File.separator + "java";
-        String validsPath = classLoader.getResource("valid_programs").getFile();
-        File validsDir = new File(validsPath);
-        SuffixFileFilter classFilter = new SuffixFileFilter("class");
-
-        for (File classFile : FileUtils.listFiles(validsDir, classFilter, null)) {
-            String className = FilenameUtils.getBaseName(classFile.getName());
-            Process proc = new ProcessBuilder(javaBin, "-cp", validsPath, className).start();
-
-            // Supply input to the program under test, if there is any
-            File testInput = new File(validsPath + File.separator + className + ".input");
-            if (testInput.exists()) {
-                String input = FileUtils.readFileToString(testInput, UTF_8);
-                OutputStream stdin = proc.getOutputStream();
-                BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(stdin));
-                writer.write(input);
-                writer.flush();
-            }
-
-            int actualExit = proc.waitFor();
-            assertEquals(actualExit, 0, "Program " + classFile.getName() +
-                                        " finished with exit code " + actualExit);
-
-            // If the program under test has some expected output, check it
-            File testOutput = new File(validsPath + File.separator + className + ".output");
-            if (!testOutput.exists())
-                continue;
-            List<String> actualOutput = IOUtils.readLines(proc.getInputStream(), UTF_8);
-            List<String> expectedOutput = FileUtils.readLines(testOutput, UTF_8);
-            assertThat(actualOutput)
-                .withFailMessage(className + " wrote " + actualOutput +
-                                 " when " + expectedOutput + " was expected")
-                .usingElementComparator(outputComparator)
-                .isEqualTo(expectedOutput);
+    @ParameterizedTest
+    @MethodSource("provideCompiledPrograms")
+    void runCompiledProgram(Path classFile) throws IOException, InterruptedException {
+        String programPath = classFile.getParent().toString();
+        String className = FilenameUtils.getBaseName(classFile.toString());
+        Process proc = new ProcessBuilder(javaBin, "-cp", programPath, className).start();
+        Path testInput = Path.of(programPath, className + ".input");
+        if (Files.exists(testInput)) {
+            String input = FileUtils.readFileToString(testInput.toFile(), UTF_8);
+            OutputStream stdin = proc.getOutputStream();
+            IOUtils.write(input, stdin, UTF_8);
+            stdin.flush();
         }
+        assertEquals(0, proc.waitFor(), "Program finished with nonzero exit code");
+        Path testOutput = Path.of(programPath, className + ".output");
+        if (!Files.exists(testOutput))
+            return;
+        List<String> expectedOutput = FileUtils.readLines(testOutput.toFile(), UTF_8);
+        List<String> actualOutput = IOUtils.readLines(proc.getInputStream(), UTF_8);
+        assertThat(actualOutput)
+            .withFailMessage("Program output " + actualOutput +
+                             " when " + expectedOutput + " was expected")
+            .usingElementComparator(outputComparator)
+            .isEqualTo(expectedOutput);
     }
+
+    private Stream<Arguments> provideCompiledPrograms() throws IOException {
+        return Files.list(validPrograms)
+            .filter(path -> path.toString().endsWith(".class"))
+            .map(Arguments::of);
+    }
+
+    private final String javaBin = String.join(File.separator,
+        System.getProperty("java.home"), "bin", "java"
+    );
 
     Comparator<String> outputComparator = new Comparator<>() {
         // Makes a numerical comparison if expected output is numerical
