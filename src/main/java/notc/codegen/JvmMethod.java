@@ -1,5 +1,6 @@
 package notc.codegen;
 
+import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.VariableDeclarationContext;
 
 import org.apache.commons.text.TextStringBuilder;
@@ -10,6 +11,21 @@ import java.util.HashMap;
 
 // Instantiated as code generator targets. Tracks state of method being generated.
 class JvmMethod {
+
+    private static final Map<Type,Opcode> STORE_OP_BY_TYPE = Map.of(
+        Type.BOOL,   Opcode.ISTORE,
+        Type.INT,    Opcode.ISTORE,
+        Type.STRING, Opcode.ASTORE,
+        Type.DOUBLE, Opcode.DSTORE
+    );
+
+    private static final Map<Type,Opcode> LOAD_OP_BY_TYPE = Map.of(
+        Type.BOOL,   Opcode.ILOAD,
+        Type.INT,    Opcode.ILOAD,
+        Type.STRING, Opcode.ALOAD,
+        Type.DOUBLE, Opcode.DLOAD
+    );
+
     private int nextVarAddress    = 0;
     private int currentStackDepth = 0;
     private int maxStackDepth     = 0;
@@ -57,8 +73,17 @@ class JvmMethod {
         maxStackDepth = Math.max(maxStackDepth, currentStackDepth);
     }
 
-    int addressOf(VariableDeclarationContext varDecl) {
-        return varAddresses.get(varDecl);
+    // Emitters that deal with internal variable addresses
+    void emitStore(VariableDeclarationContext varDecl) {
+        Opcode storeOp = STORE_OP_BY_TYPE.get(varDecl.type);
+        int varAddr = varAddresses.get(varDecl);
+        emit(storeOp, Integer.toString(varAddr));
+    }
+
+    void emitLoad(VariableDeclarationContext varDecl) {
+        Opcode loadOp = LOAD_OP_BY_TYPE.get(varDecl.type);
+        int varAddr = varAddresses.get(varDecl);
+        emit(loadOp, Integer.toString(varAddr));
     }
 
     // Get a new label for jump instructions

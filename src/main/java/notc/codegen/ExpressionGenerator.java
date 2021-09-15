@@ -119,9 +119,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Loads the variable referenced by the expression
     @Override
     public Void visitVariableExpression(VariableExpressionContext varExpr) {
-        int varAddr = targetMethod.addressOf(symTab.lookupVariable(varExpr.varId));
-        Opcode loadOp = loadOpByType.get(varExpr.type);
-        targetMethod.emit(loadOp,  Integer.toString(varAddr));
+        VariableDeclarationContext varDecl = symTab.lookupVariable(varExpr.varId);
+        targetMethod.emitLoad(varDecl);
         return null;
     }
 
@@ -275,52 +274,35 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // Assignments
     @Override
     public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
-        generate(assExpr.rhs); // Expression on the right of = goes on stack
-        VariableDeclarationContext varDecl = symTab.lookupVariable(assExpr.varId);
-        int varAddr = targetMethod.addressOf(varDecl);
-        Opcode storeOp = storeOpByType.get(varDecl.type);
-        Opcode dupOp = varDecl.type.isDouble() ? Opcode.DUP2 : Opcode.DUP;
+        Type t = generate(assExpr.rhs);
         // Stored value is value of expression and is left on stack
-        targetMethod.emit(dupOp);
-        targetMethod.emit(storeOp, Integer.toString(varAddr));
+        Opcode dup = t.isDouble() ? Opcode.DUP2 : Opcode.DUP;
+        targetMethod.emit(dup);
+        VariableDeclarationContext varDecl = symTab.lookupVariable(assExpr.varId);
+        targetMethod.emitStore(varDecl);
         return null;
     }
 
     @Override
     public Void visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
-        Type varType = incrDecrExpr.type;
-        Opcode dupOp = varType.isDouble() ? Opcode.DUP2 : Opcode.DUP;
+        VariableDeclarationContext varDecl = symTab.lookupVariable(incrDecrExpr.varId);
+        Opcode dupOp = varDecl.type.isDouble() ? Opcode.DUP2 : Opcode.DUP;
         Token opTok = ObjectUtils.firstNonNull(incrDecrExpr.preOp, incrDecrExpr.postOp);
         Opcode arithmOp;
         if (opTok.getType() == NotCParser.INCR)
-            arithmOp = varType.isInt() ? Opcode.IADD : Opcode.DADD;
+            arithmOp = varDecl.type.isInt() ? Opcode.IADD : Opcode.DADD;
         else
-            arithmOp = varType.isInt() ? Opcode.ISUB : Opcode.DSUB;
-        int varAddr = targetMethod.addressOf(symTab.lookupVariable(incrDecrExpr.varId));
-        targetMethod.emit(loadOpByType.get(varType), Integer.toString(varAddr));
+            arithmOp = varDecl.type.isInt() ? Opcode.ISUB : Opcode.DSUB;
+        targetMethod.emitLoad(varDecl);
         if (incrDecrExpr.postOp != null)
             targetMethod.emit(dupOp); // Leave previous value on stack
-        Opcode const1 = varType.isInt() ? Opcode.ICONST_1 : Opcode.DCONST_1;
+        Opcode const1 = varDecl.type.isInt() ? Opcode.ICONST_1 : Opcode.DCONST_1;
         targetMethod.emit(const1);
         targetMethod.emit(arithmOp);
         if (incrDecrExpr.preOp != null)
             targetMethod.emit(dupOp); // Leave new value on stack
-        targetMethod.emit(storeOpByType.get(varType), Integer.toString(varAddr));
+        targetMethod.emitStore(varDecl);
         return null;
     }
-
-    private static final Map<Type,Opcode> storeOpByType = Map.of(
-        Type.BOOL,   Opcode.ISTORE,
-        Type.INT,    Opcode.ISTORE,
-        Type.STRING, Opcode.ASTORE,
-        Type.DOUBLE, Opcode.DSTORE
-    );
-
-    private static final Map<Type,Opcode> loadOpByType = Map.of(
-        Type.BOOL,   Opcode.ILOAD,
-        Type.INT,    Opcode.ILOAD,
-        Type.STRING, Opcode.ALOAD,
-        Type.DOUBLE, Opcode.DLOAD
-    );
 
 }

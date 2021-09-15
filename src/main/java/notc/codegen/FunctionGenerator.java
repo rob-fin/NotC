@@ -49,11 +49,9 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitInitializationStatement(InitializationStatementContext initStm) {
         targetMethod.reserveVarMemory(initStm.varDecl);
-        int varAddr = targetMethod.addressOf(initStm.varDecl);
         // Generate initializing expression and store result
         exprGen.generate(initStm.expr);
-        Opcode storeOp = storeOpByType.get(initStm.varDecl.type);
-        targetMethod.emit(storeOp, Integer.toString(varAddr));
+        targetMethod.emitStore(initStm.varDecl);
         return null;
     }
 
