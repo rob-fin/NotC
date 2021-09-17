@@ -11,17 +11,19 @@ import notc.antlrgen.NotCParser.IntLiteralExpressionContext;
 import notc.antlrgen.NotCParser.StringLiteralExpressionContext;
 import notc.antlrgen.NotCParser.VariableExpressionContext;
 import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
-import notc.antlrgen.NotCParser.IncrementDecrementExpressionContext;
+import notc.antlrgen.NotCParser.IncrementExpressionContext;
+import notc.antlrgen.NotCParser.DecrementExpressionContext;
 import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
-import notc.antlrgen.NotCParser.AndOrExpressionContext;
+import notc.antlrgen.NotCParser.BinaryBooleanExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.FunctionHeaderContext;
 import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.semantics.SymbolTable;
 
 import org.antlr.v4.runtime.Token;
-import org.apache.commons.lang3.ObjectUtils;
+
+import java.util.Map;
 
 import java.util.Map;
 
@@ -140,35 +142,24 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return null;
     }
 
-
-    // +, -, *, /, %
     @Override
-    public Void visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
-        // Generate operands
-        generate(arithmExpr.opnd1);
-        generate(arithmExpr.opnd2);
-        Opcode op = getArithmeticOp(arithmExpr.op, arithmExpr.type);
-        targetMethod.emit(op);
+    public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
+        Type exprType = generate(assExpr.rhs);
+        // Stored value is value of expression and is left on stack
+        Opcode dup = exprType.isDouble() ? Opcode.DUP2 : Opcode.DUP;
+        targetMethod.emit(dup);
+        VariableDeclarationContext varDecl = symTab.lookupVariable(assExpr.varId);
+        targetMethod.emitStore(varDecl);
         return null;
     }
-// TODO: maybe break up arithmetic parser rules to avoid this
-    private Opcode getArithmeticOp(Token tok, Type t) {
-        switch (tok.getType()) {
-            case NotCParser.ADD: return t.isInt() ? Opcode.IADD : Opcode.DADD;
-            case NotCParser.SUB: return t.isInt() ? Opcode.ISUB : Opcode.DSUB;
-            case NotCParser.MUL: return t.isInt() ? Opcode.IMUL : Opcode.DMUL;
-            case NotCParser.DIV: return t.isInt() ? Opcode.IDIV : Opcode.DDIV;
-            case NotCParser.REM: return t.isInt() ? Opcode.IREM : Opcode.DREM;
-            default: throw new IllegalArgumentException("Should be unreachable. Token: " + tok);
-        }
-    }
 
+    // <, > <=, >=, ==, !=
     @Override
     public Void visitComparisonExpression(ComparisonExpressionContext compExpr) {
-        // Put operands on stack
-        generate(compExpr.opnd1);
-        generate(compExpr.opnd2);
-        if (compExpr.opnd1.type.isDouble() || compExpr.opnd2.type.isDouble())
+        Type t1 = generate(compExpr.opnd1);
+        Type t2 = generate(compExpr.opnd2);
+        // The type is unknown at parse time
+        if (t1.isDouble() || t2.isDouble())
             generateDoubleComparison(compExpr);
         else
             generateIntComparison(compExpr);
@@ -179,8 +170,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     private void generateIntComparison(ComparisonExpressionContext compExpr) {
         String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        Opcode compJmp = comparisonByToken(compExpr.op);
-        targetMethod.emit(compJmp, trueLabel);
+        Opcode jumpComp = jumpComparisonByToken.get(compExpr.op.getType());
+        targetMethod.emit(jumpComp, trueLabel);
         targetMethod.emit(Opcode.ICONST_0);
         targetMethod.emit(Opcode.GOTO, endLabel);
         targetMethod.insertLabel(trueLabel);
@@ -188,79 +179,67 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         targetMethod.insertLabel(endLabel);
     }
 
-    private Opcode comparisonByToken(Token tok) {
-        switch (tok.getType()) {
-            case NotCParser.LT: return Opcode.IF_ICMPLT;
-            case NotCParser.GT: return Opcode.IF_ICMPGT;
-            case NotCParser.GE: return Opcode.IF_ICMPGE;
-            case NotCParser.LE: return Opcode.IF_ICMPLE;
-            case NotCParser.EQ: return Opcode.IF_ICMPEQ;
-            case NotCParser.NE: return Opcode.IF_ICMPNE;
-            default: throw new IllegalArgumentException("Should be unreachable. Token: " + tok);
-        }
-    }
+    private Map<Integer,Opcode> jumpComparisonByToken = Map.of(
+        NotCParser.LT, Opcode.IF_ICMPLT,
+        NotCParser.GT, Opcode.IF_ICMPGT,
+        NotCParser.GE, Opcode.IF_ICMPGE,
+        NotCParser.LE, Opcode.IF_ICMPLE,
+        NotCParser.EQ, Opcode.IF_ICMPEQ,
+        NotCParser.NE, Opcode.IF_ICMPNE
+    );
 
     // "dcmpg" is trickier
     private void generateDoubleComparison(ComparisonExpressionContext compExpr) {
         String trueLabel = targetMethod.newLabel();
-        String falseLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
         targetMethod.emit(Opcode.DCMPG);
         switch (compExpr.op.getType()) {
             case NotCParser.LT: // a < b -> TOS = -1
                                 targetMethod.emit(Opcode.ICONST_M1);
                                 targetMethod.emit(Opcode.IF_ICMPEQ, trueLabel);
-                                targetMethod.emit(Opcode.GOTO, falseLabel);
                                 break;
             case NotCParser.GT: // a > b -> TOS = 1
                                 targetMethod.emit(Opcode.ICONST_1);
                                 targetMethod.emit(Opcode.IF_ICMPEQ, trueLabel);
-                                targetMethod.emit(Opcode.GOTO, falseLabel);
                                 break;
             case NotCParser.GE: // a >= b -> TOS != -1
                                 targetMethod.emit(Opcode.ICONST_M1);
-                                targetMethod.emit(Opcode.IF_ICMPEQ, falseLabel);
-                                targetMethod.emit(Opcode.GOTO, trueLabel);
+                                targetMethod.emit(Opcode.IF_ICMPNE, trueLabel);
                                 break;
             case NotCParser.LE: // a <= b -> TOS != 1
                                 targetMethod.emit(Opcode.ICONST_1);
-                                targetMethod.emit(Opcode.IF_ICMPEQ, falseLabel);
-                                targetMethod.emit(Opcode.GOTO, trueLabel);
+                                targetMethod.emit(Opcode.IF_ICMPNE, trueLabel);
                                 break;
             case NotCParser.EQ: // a = b -> TOS = 0
                                 targetMethod.emit(Opcode.ICONST_0);
                                 targetMethod.emit(Opcode.IF_ICMPEQ, trueLabel);
-                                targetMethod.emit(Opcode.GOTO, falseLabel);
                                 break;
             case NotCParser.NE: // a != b -> TOS != 0
                                 targetMethod.emit(Opcode.ICONST_0);
-                                targetMethod.emit(Opcode.IF_ICMPEQ, falseLabel);
-                                targetMethod.emit(Opcode.GOTO, trueLabel);
+                                targetMethod.emit(Opcode.IF_ICMPNE, trueLabel);
                                 break;
-            default: throw new IllegalArgumentException("Should be unreachable. Token: " +
-                                                        compExpr.op);
+            default: throw new IllegalArgumentException("Should be unreachable " + compExpr.op);
         }
+        targetMethod.emit(Opcode.ICONST_0);
+        targetMethod.emit(Opcode.GOTO, endLabel);
         targetMethod.insertLabel(trueLabel);
         targetMethod.emit(Opcode.ICONST_1);
-        targetMethod.emit(Opcode.GOTO, endLabel);
-        targetMethod.insertLabel(falseLabel);
-        targetMethod.emit(Opcode.ICONST_0);
         targetMethod.insertLabel(endLabel);
     }
 
-    // Use bitwise and/or on operands and check if result is 0
+    // &&, ||: Use bitwise and/or on operands and check if result is 0
     @Override
-    public Void visitAndOrExpression(AndOrExpressionContext andOrExpr) {
+    public Void visitBinaryBooleanExpression(BinaryBooleanExpressionContext binBoolExpr) {
+        // Put operands on stack
+        generate(binBoolExpr.opnd1);
+        generate(binBoolExpr.opnd2);
         Opcode op;
-        if (andOrExpr.op.getType() == NotCParser.AND)
+        if (binBoolExpr.op.getType() == NotCParser.AND)
             op = Opcode.IAND;
         else
             op = Opcode.IOR;
         String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        // Put operands on stack
-        generate(andOrExpr.opnd1);
-        generate(andOrExpr.opnd2);
         targetMethod.emit(op);
         targetMethod.emit(Opcode.IFNE, trueLabel);
         targetMethod.emit(Opcode.ICONST_0);
@@ -271,38 +250,73 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         return null;
     }
 
-    // Assignments
+    // ++
     @Override
-    public Void visitAssignmentExpression(AssignmentExpressionContext assExpr) {
-        Type t = generate(assExpr.rhs);
-        // Stored value is value of expression and is left on stack
-        Opcode dup = t.isDouble() ? Opcode.DUP2 : Opcode.DUP;
-        targetMethod.emit(dup);
-        VariableDeclarationContext varDecl = symTab.lookupVariable(assExpr.varId);
-        targetMethod.emitStore(varDecl);
+    public Void visitIncrementExpression(IncrementExpressionContext incrExpr) {
+        Opcode arithmOp = incrExpr.type.isDouble() ? Opcode.DADD : Opcode.IADD;
+        generateIncrementDecrement(incrExpr.varId, arithmOp, incrExpr.preOp != null);
         return null;
     }
 
+    // --
     @Override
-    public Void visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
-        VariableDeclarationContext varDecl = symTab.lookupVariable(incrDecrExpr.varId);
-        Opcode dupOp = varDecl.type.isDouble() ? Opcode.DUP2 : Opcode.DUP;
-        Token opTok = ObjectUtils.firstNonNull(incrDecrExpr.preOp, incrDecrExpr.postOp);
-        Opcode arithmOp;
-        if (opTok.getType() == NotCParser.INCR)
-            arithmOp = varDecl.type.isInt() ? Opcode.IADD : Opcode.DADD;
-        else
-            arithmOp = varDecl.type.isInt() ? Opcode.ISUB : Opcode.DSUB;
-        targetMethod.emitLoad(varDecl);
-        if (incrDecrExpr.postOp != null)
-            targetMethod.emit(dupOp); // Leave previous value on stack
-        Opcode const1 = varDecl.type.isInt() ? Opcode.ICONST_1 : Opcode.DCONST_1;
-        targetMethod.emit(const1);
-        targetMethod.emit(arithmOp);
-        if (incrDecrExpr.preOp != null)
-            targetMethod.emit(dupOp); // Leave new value on stack
-        targetMethod.emitStore(varDecl);
+    public Void visitDecrementExpression(DecrementExpressionContext decrExpr) {
+        Opcode arithmOp = decrExpr.type.isDouble() ? Opcode.DSUB : Opcode.ISUB;
+        generateIncrementDecrement(decrExpr.varId, arithmOp, decrExpr.preOp != null);
         return null;
     }
+
+    private void generateIncrementDecrement(Token varId, Opcode arithmOp, boolean pre) {
+        VariableDeclarationContext varDecl = symTab.lookupVariable(varId);
+        Opcode dup;
+        Opcode const1;
+        if (varDecl.type.isDouble()) {
+            dup = Opcode.DUP2;
+            const1 = Opcode.DCONST_1;
+        } else {
+            dup = Opcode.DUP;
+            const1 = Opcode.ICONST_1;
+        }
+
+        targetMethod.emitLoad(varDecl);
+        if (!pre)
+            targetMethod.emit(dup); // Leaves old value on stack
+        targetMethod.emit(const1);
+        targetMethod.emit(arithmOp);
+        if (pre)
+            targetMethod.emit(dup); // Leaves new value on stack
+        targetMethod.emitStore(varDecl);
+    }
+
+    // +, -, *, /, %
+    @Override
+    public Void visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
+        // Generate operands
+        generate(arithmExpr.opnd1);
+        generate(arithmExpr.opnd2);
+        Map<Integer,Opcode> lookupTable = arithmExpr.type.isDouble() ? doubleArithmetic
+                                                                     : intArithmetic;
+        Opcode arithmOp = lookupTable.get(arithmExpr.op.getType());
+        targetMethod.emit(arithmOp);
+        return null;
+    }
+
+    // Ugly but resolving operators with separate parser rules messes up their associativity
+
+    Map<Integer,Opcode> intArithmetic = Map.of(
+        NotCParser.ADD, Opcode.IADD,
+        NotCParser.SUB, Opcode.ISUB,
+        NotCParser.MUL, Opcode.IMUL,
+        NotCParser.DIV, Opcode.IDIV,
+        NotCParser.REM, Opcode.IREM
+    );
+
+    Map<Integer,Opcode> doubleArithmetic = Map.of(
+        NotCParser.ADD, Opcode.DADD,
+        NotCParser.SUB, Opcode.DSUB,
+        NotCParser.MUL, Opcode.DMUL,
+        NotCParser.DIV, Opcode.DDIV,
+        NotCParser.REM, Opcode.DREM
+    );
 
 }

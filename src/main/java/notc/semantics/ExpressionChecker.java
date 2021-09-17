@@ -12,31 +12,26 @@ import notc.antlrgen.NotCParser.IntLiteralExpressionContext;
 import notc.antlrgen.NotCParser.StringLiteralExpressionContext;
 import notc.antlrgen.NotCParser.VariableExpressionContext;
 import notc.antlrgen.NotCParser.FunctionCallExpressionContext;
-import notc.antlrgen.NotCParser.IncrementDecrementExpressionContext;
+import notc.antlrgen.NotCParser.IncrementExpressionContext;
+import notc.antlrgen.NotCParser.DecrementExpressionContext;
 import notc.antlrgen.NotCParser.ArithmeticExpressionContext;
 import notc.antlrgen.NotCParser.ComparisonExpressionContext;
-import notc.antlrgen.NotCParser.AndOrExpressionContext;
+import notc.antlrgen.NotCParser.BinaryBooleanExpressionContext;
 import notc.antlrgen.NotCParser.AssignmentExpressionContext;
 import notc.antlrgen.NotCParser.ParenthesizedExpressionContext;
 
+import org.antlr.v4.runtime.Token;
 import com.google.common.collect.Lists;
 
 import java.util.List;
 
-// Each visit method tries to infer the type of the expression it was called on. If a type cannot
-// be inferred, compilation stops. Otherwise, the corresponding parse tree node is annotated with
-// the type for later use by the code generator. The inferred type is returned to the caller
-// because the expression may be a subexpression of another one whose type depends on it.
+// Infers types of expressions and checks if they make sense.
+// The parse tree node of each expression is annotated with its type.
 class ExpressionChecker extends NotCBaseVisitor<Type> {
     private final SymbolTable symTab;
 
     ExpressionChecker(SymbolTable symTab) {
         this.symTab = symTab;
-    }
-
-    Type typeAnnotate(ExpressionContext expr, Type t) {
-        expr.type = t;
-        return t;
     }
 
     // Checks if an expression has some expected type
@@ -52,6 +47,13 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
             " where expression of type " + expected +
             " was expected"
         );
+    }
+
+    // The type is returned to the caller because the expression may be a
+    // subexpression of another one whose type depends on it.
+    Type typeAnnotate(ExpressionContext expr, Type t) {
+        expr.type = t;
+        return t;
     }
 
     // Literal expressions simply have the type of the literal
@@ -100,21 +102,51 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         }
 
         List<Type> paramTypes = Lists.transform(header.params, p -> p.type);
-        for (int i = 0; i < paramTypes.size(); i++)
+        int paramCount = paramTypes.size();
+        for (int i = 0; i < paramCount; ++i)
             expectType(funCallExpr.args.get(i), paramTypes.get(i));
 
         return typeAnnotate(funCallExpr, header.returnType);
     }
 
+    // Expression to the right of = must be inferable to the variable's declared type
     @Override
-    public Type visitIncrementDecrementExpression(IncrementDecrementExpressionContext incrDecrExpr) {
-        VariableDeclarationContext originalDecl = symTab.resolveVarReference(incrDecrExpr.varId);
+    public Type visitAssignmentExpression(AssignmentExpressionContext assExpr) {
+        VariableDeclarationContext originalDecl = symTab.resolveVarReference(assExpr.varId);
         Type declaredType = originalDecl.type;
-        if (declaredType.isNumerical())
-            return typeAnnotate(incrDecrExpr, declaredType);
-        throw new SemanticException(incrDecrExpr.varId,
+        expectType(assExpr.rhs, declaredType);
+        return typeAnnotate(assExpr, declaredType);
+    }
+
+    // ++
+    @Override
+    public Type visitIncrementExpression(IncrementExpressionContext incrExpr) {
+        Type t = checkIncrementDecrement(incrExpr.varId);
+        return typeAnnotate(incrExpr, t);
+    }
+
+    // --
+    @Override
+    public Type visitDecrementExpression(DecrementExpressionContext decrExpr) {
+        Type t = checkIncrementDecrement(decrExpr.varId);
+        return typeAnnotate(decrExpr, t);
+    }
+
+    private Type checkIncrementDecrement(Token varId) {
+        VariableDeclarationContext varDecl = symTab.resolveVarReference(varId);
+        if (varDecl.type.isNumerical())
+            return varDecl.type;
+        throw new SemanticException(varId,
             "Attempted increment or decrement of non-numerical variable"
         );
+    }
+
+    // &&, ||
+    @Override
+    public Type visitBinaryBooleanExpression(BinaryBooleanExpressionContext binBoolExpr) {
+        expectType(binBoolExpr.opnd1, Type.BOOL);
+        expectType(binBoolExpr.opnd2, Type.BOOL);
+        return typeAnnotate(binBoolExpr, Type.BOOL);
     }
 
     // +, -, *, /, %
@@ -131,7 +163,8 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         return typeAnnotate(compExpr, Type.BOOL);
     }
 
-    // Utility for type checking arithmetic and comparison expressions
+    // Utility for type checking arithmetic and comparison expressions.
+    // Returns the most general of the two types inferred.
     private Type checkBinaryNumerical(ExpressionContext opnd1, ExpressionContext opnd2) {
         Type opnd1Type = opnd1.accept(this);
         Type opnd2Type = opnd2.accept(this);
@@ -147,24 +180,6 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
         if (opnd2Type != mostGeneralType)
             opnd2.runtimeConversion = mostGeneralType;
         return mostGeneralType;
-    }
-
-    @Override
-    public Type visitAndOrExpression(AndOrExpressionContext andOrExpr) {
-        Type t1 = andOrExpr.opnd1.accept(this);
-        Type t2 = andOrExpr.opnd2.accept(this);
-        if (!t1.isBool() || !t2.isBool())
-            throw new SemanticException(andOrExpr.getStart(), "Ill-typed boolean expression");
-        return typeAnnotate(andOrExpr, Type.BOOL);
-    }
-
-    // Expression to the right of = must be inferable to the variable's declared type
-    @Override
-    public Type visitAssignmentExpression(AssignmentExpressionContext assExpr) {
-        VariableDeclarationContext originalDecl = symTab.resolveVarReference(assExpr.varId);
-        Type declaredType = originalDecl.type;
-        expectType(assExpr.rhs, declaredType);
-        return typeAnnotate(assExpr, declaredType);
     }
 
     @Override

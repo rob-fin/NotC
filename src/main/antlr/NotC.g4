@@ -171,38 +171,39 @@ statement
             varDecl.id = t;
             $varDecls.add(varDecl);
         }
-    }                                                                                   # DeclarationStatement
-    | varDecl=variableDeclaration ASSIGN expr=expression STM_TERM                       # InitializationStatement
-    | expr=expression STM_TERM                                                          # ExpressionStatement
-    | 'return' expr=expression? STM_TERM                                                # ReturnStatement
-    | LEFT_BRACE statements+=statement* RIGHT_BRACE                                     # BlockStatement
-    | 'while' LEFT_PAREN conditionExpr=expression RIGHT_PAREN loopedStm=statement       # WhileStatement
-    | 'if' '(' conditionExpr=expression ')' consequentStm=statement                     # IfStatement
+    }                                                                              # DeclarationStatement
+    | varDecl=variableDeclaration ASSIGN expr=expression STM_TERM                  # InitializationStatement
+    | expr=expression STM_TERM                                                     # ExpressionStatement
+    | 'return' expr=expression? STM_TERM                                           # ReturnStatement
+    | LEFT_BRACE statements+=statement* RIGHT_BRACE                                # BlockStatement
+    | 'while' LEFT_PAREN conditionExpr=expression RIGHT_PAREN loopedStm=statement  # WhileStatement
+    | 'if' LEFT_PAREN conditionExpr=expression RIGHT_PAREN consequentStm=statement # IfStatement
     | 'if' LEFT_PAREN conditionExpr=expression RIGHT_PAREN
-      consequentStm=statement 'else' altStm=statement                                   # IfElseStatement
+      consequentStm=statement 'else' altStm=statement                              # IfElseStatement
+    | STM_TERM                                                                     # EmptyStatement
     ;
 
 
 // The types of expressions are inferred during semantic analysis
 expression locals [Type type, Type runtimeConversion]
-    : LEFT_PAREN expr=expression RIGHT_PAREN                                      # ParenthesizedExpression
-    | 'false'                                                                     # FalseLiteralExpression
-    | 'true'                                                                      # TrueLiteralExpression
-    | value=DOUBLE_LITERAL                                                        # DoubleLiteralExpression
-    | value=INT_LITERAL                                                           # IntLiteralExpression
-    | value=STRING_LITERAL                                                        # StringLiteralExpression
-    | varId=ID                                                                    # VariableExpression
-    | id=ID LEFT_PAREN (args+=expression (COMMA args+=expression)*)? RIGHT_PAREN  # FunctionCallExpression
+    : LEFT_PAREN expr=expression RIGHT_PAREN                                       # ParenthesizedExpression
+    | 'false'                                                                      # FalseLiteralExpression
+    | 'true'                                                                       # TrueLiteralExpression
+    | value=DOUBLE_LITERAL                                                         # DoubleLiteralExpression
+    | value=INT_LITERAL                                                            # IntLiteralExpression
+    | value=STRING_LITERAL                                                         # StringLiteralExpression
+    | varId=ID                                                                     # VariableExpression
+    | id=ID LEFT_PAREN (args+=expression (COMMA args+=expression)*)? RIGHT_PAREN   # FunctionCallExpression
     | (preOp=INCR varId=ID  |
-       varId=ID postOp=INCR |
-       preOp=DECR varId=ID  |
-       varId=ID postOp=DECR)                                                      # IncrementDecrementExpression
-    | opnd1=expression op=(MUL | DIV | REM) opnd2=expression                      # ArithmeticExpression
-    | opnd1=expression op=(ADD | SUB) opnd2=expression                            # ArithmeticExpression
-    | opnd1=expression op=(LT | GT | GE | LE | EQ | NE) opnd2=expression          # ComparisonExpression
-    | opnd1=expression op=AND opnd2=expression                                    # AndOrExpression
-    | opnd1=expression op=OR  opnd2=expression                                    # AndOrExpression
-    | varId=ID ASSIGN rhs=expression                                              # AssignmentExpression
+       varId=ID postOp=INCR)                                                       # IncrementExpression
+    | (preOp=DECR varId=ID  |
+       varId=ID postOp=DECR)                                                       # DecrementExpression
+    | opnd1=expression op=(MUL | DIV | REM) opnd2=expression                       # ArithmeticExpression
+    | opnd1=expression op=(ADD | SUB) opnd2=expression                             # ArithmeticExpression
+    | opnd1=expression op=(LT | GT | GE | LE | EQ | NE) opnd2=expression           # ComparisonExpression
+    | opnd1=expression op=AND opnd2=expression                                     # BinaryBooleanExpression
+    | opnd1=expression op=OR  opnd2=expression                                     # BinaryBooleanExpression
+    | varId=ID ASSIGN rhs=expression                                               # AssignmentExpression
     ;
 
 headerDeclarations : headers+=functionHeader* ;
