@@ -25,10 +25,7 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
 
     // Entry point. Sets up target and generates the statements.
     JvmMethod generate(FunctionDefinitionContext funDef) {
-        String name = funDef.header.id.getText();
-        String specification = name + ":" + funDef.header.descriptor;
-        targetMethod = JvmMethod.from(specification);
-        targetMethod.reserveVarMemory(funDef.header.params);
+        targetMethod = new JvmMethod(funDef.header);
         exprGen.setTarget(targetMethod);
         for (StatementContext stm : funDef.body)
             stm.accept(this);
@@ -49,18 +46,10 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitInitializationStatement(InitializationStatementContext initStm) {
         targetMethod.reserveVarMemory(initStm.varDecl);
-        // Generate initializing expression and store result
         exprGen.generate(initStm.expr);
         targetMethod.emitStore(initStm.varDecl);
         return null;
     }
-
-    private static final Map<Type,Opcode> storeOpByType = Map.of(
-        Type.BOOL,   Opcode.ISTORE,
-        Type.INT,    Opcode.ISTORE,
-        Type.STRING, Opcode.ASTORE,
-        Type.DOUBLE, Opcode.DSTORE
-    );
 
     // Expression used as statement
     @Override
@@ -68,8 +57,8 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
         Type exprType = exprGen.generate(exprStm.expr);
         // Value is not used and should be popped
         if (exprType.isVoid()) return null; // Leaves nothing on stack anyway
-        Opcode popOp = exprType.isDouble() ? Opcode.POP2 : Opcode.POP;
-        targetMethod.emit(popOp);
+        Opcode pop = exprType.isDouble() ? Opcode.POP2 : Opcode.POP;
+        targetMethod.emit(pop);
         return null;
     }
 

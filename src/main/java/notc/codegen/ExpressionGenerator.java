@@ -25,8 +25,6 @@ import org.antlr.v4.runtime.Token;
 
 import java.util.Map;
 
-import java.util.Map;
-
 class ExpressionGenerator extends NotCBaseVisitor<Void> {
     private final SymbolTable symTab;
     private JvmMethod targetMethod;
@@ -128,17 +126,9 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
 
     @Override
     public Void visitFunctionCallExpression(FunctionCallExpressionContext funCallExpr) {
-        // Put all arguments on stack and calculate their size
-        int argsStackSize = 0;
-        for (ExpressionContext arg : funCallExpr.args)
-            argsStackSize += generate(arg).size();
-        FunctionHeaderContext header = symTab.lookupFunction(funCallExpr.id);
-        String descriptor = header.descriptor;
-        String invocationOpnd = "Method " + funCallExpr.id.getText() + ":" + descriptor;
-        int returnStackSize = funCallExpr.type.size();
-        // Arguments are popped, return value is pushed
-        int stackChange = returnStackSize - argsStackSize;
-        targetMethod.emit(Opcode.INVOKESTATIC, stackChange, invocationOpnd);
+        funCallExpr.args.forEach(this::generate); // Puts arguments on stack
+        FunctionHeaderContext callee = symTab.lookupFunction(funCallExpr.id);
+        targetMethod.emitCall(callee);
         return null;
     }
 
@@ -170,8 +160,8 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     private void generateIntComparison(ComparisonExpressionContext compExpr) {
         String trueLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        Opcode jumpComp = jumpComparisonByToken.get(compExpr.op.getType());
-        targetMethod.emit(jumpComp, trueLabel);
+        Opcode icmp = icmpByToken.get(compExpr.op.getType());
+        targetMethod.emit(icmp, trueLabel);
         targetMethod.emit(Opcode.ICONST_0);
         targetMethod.emit(Opcode.GOTO, endLabel);
         targetMethod.insertLabel(trueLabel);
@@ -179,7 +169,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         targetMethod.insertLabel(endLabel);
     }
 
-    private Map<Integer,Opcode> jumpComparisonByToken = Map.of(
+    private final Map<Integer,Opcode> icmpByToken = Map.of(
         NotCParser.LT, Opcode.IF_ICMPLT,
         NotCParser.GT, Opcode.IF_ICMPGT,
         NotCParser.GE, Opcode.IF_ICMPGE,
@@ -291,7 +281,6 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
     // +, -, *, /, %
     @Override
     public Void visitArithmeticExpression(ArithmeticExpressionContext arithmExpr) {
-        // Generate operands
         generate(arithmExpr.opnd1);
         generate(arithmExpr.opnd2);
         Map<Integer,Opcode> lookupTable = arithmExpr.type.isDouble() ? doubleArithmetic
@@ -303,7 +292,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
 
     // Ugly but resolving operators with separate parser rules messes up their associativity
 
-    Map<Integer,Opcode> intArithmetic = Map.of(
+    private final Map<Integer,Opcode> intArithmetic = Map.of(
         NotCParser.ADD, Opcode.IADD,
         NotCParser.SUB, Opcode.ISUB,
         NotCParser.MUL, Opcode.IMUL,
@@ -311,7 +300,7 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         NotCParser.REM, Opcode.IREM
     );
 
-    Map<Integer,Opcode> doubleArithmetic = Map.of(
+    private final Map<Integer,Opcode> doubleArithmetic = Map.of(
         NotCParser.ADD, Opcode.DADD,
         NotCParser.SUB, Opcode.DSUB,
         NotCParser.MUL, Opcode.DMUL,

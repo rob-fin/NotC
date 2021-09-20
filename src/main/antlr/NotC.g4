@@ -114,30 +114,31 @@ import java.util.Set;
 
 /* Grammar start */
 
-// Program: list of function definitions
+// List of function definitions
 program
     : funDefs+=functionDefinition* EOF
     ;
 
-// Function definition: type, name, parameter list, body
+// Header, body
 functionDefinition
     : header=functionHeader
       LEFT_BRACE body+=statement* RIGHT_BRACE
     ;
 
-// Saves patched static type annotation in context object when parsing
-functionHeader locals [Type returnType, String descriptor]
+// Type, name, parameter list
+functionHeader locals [Type returnType, String specification]
 @after {
     $ctx.returnType = $ctx.parsedReturn.type;
 
-    StringBuilder sb = new StringBuilder("\"(");
+    // Precompute JVM specification
+    StringBuilder sb = new StringBuilder("Method " + $ctx.id.getText() + ":");
+    sb.append("\"(");
     for (Type t : Lists.transform($ctx.params, p -> p.type))
         sb.append(t.descriptor());
     sb.append(")").append($ctx.returnType.descriptor()).append("\"");
-    $ctx.descriptor = sb.toString();
+    $ctx.specification = sb.toString();
 }
-    :
-      parsedReturn=typeToken
+    : parsedReturn=typeToken
       id=ID
       LEFT_PAREN (params+=variableDeclaration (COMMA params+=variableDeclaration)*)? RIGHT_PAREN
     ;

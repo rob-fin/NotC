@@ -2,6 +2,7 @@ package notc.codegen;
 
 import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.VariableDeclarationContext;
+import notc.antlrgen.NotCParser.FunctionHeaderContext;
 
 import org.apache.commons.text.TextStringBuilder;
 
@@ -26,23 +27,20 @@ class JvmMethod {
         Type.DOUBLE, Opcode.DLOAD
     );
 
-    private int nextVarAddress    = 0;
-    private int currentStackDepth = 0;
-    private int maxStackDepth     = 0;
-    private int nextLabel         = 0;
+    private int nextVarAddress;
+    private int currentStackDepth;
+    private int maxStackDepth;
+    private int nextLabel;
 
     private String specification;
     private TextStringBuilder body;
     private Map<VariableDeclarationContext,Integer> varAddresses;
 
-    private JvmMethod() {}
-
-    static JvmMethod from(String specification) {
-        JvmMethod method = new JvmMethod();
-        method.specification = specification;
-        method.body = new TextStringBuilder();
-        method.varAddresses = new HashMap<>();
-        return method;
+    JvmMethod(FunctionHeaderContext header) {
+        specification = header.specification;
+        body = new TextStringBuilder();
+        varAddresses = new HashMap<>();
+        reserveVarMemory(header.params);
     }
 
     void reserveVarMemory(VariableDeclarationContext varDecl) {
@@ -55,50 +53,70 @@ class JvmMethod {
             reserveVarMemory(decl);
     }
 
-    void emit(Opcode op, String... operands) {
-        addInstruction(op.mnemonic, op.defaultStackChange, operands);
+    void emit(Opcode op) {
+        emit(op, null);
     }
 
-    void emit(Opcode op, int contextualStackChange, String...operands) {
-        addInstruction(op.mnemonic, contextualStackChange, operands);
-    }
-
-    // Add an instruction to the body and update stack accordingly
-    private void addInstruction(String mnemonic, int stackChange, String... operands) {
-        body.append(mnemonic);
-        for (String o : operands)
-            body.append(" " + o);
-        body.appendln(";");
-        currentStackDepth += stackChange;
-        maxStackDepth = Math.max(maxStackDepth, currentStackDepth);
-    }
-
-    // Emitters that deal with internal variable addresses
-    void emitStore(VariableDeclarationContext varDecl) {
-        Opcode storeOp = STORE_OP_BY_TYPE.get(varDecl.type);
-        int varAddr = varAddresses.get(varDecl);
-        emit(storeOp, Integer.toString(varAddr));
+    void emit(Opcode op, String operand) {
+        addInstruction(op.mnemonic, operand);
+        updateStack(op.defaultStackChange);
     }
 
     void emitLoad(VariableDeclarationContext varDecl) {
         Opcode loadOp = LOAD_OP_BY_TYPE.get(varDecl.type);
-        int varAddr = varAddresses.get(varDecl);
-        emit(loadOp, Integer.toString(varAddr));
+        Integer varAddr = varAddresses.get(varDecl);
+        emit(loadOp, varAddr.toString());
     }
 
-    // Get a new label for jump instructions
+    void emitStore(VariableDeclarationContext varDecl) {
+        Opcode storeOp = STORE_OP_BY_TYPE.get(varDecl.type);
+        Integer varAddr = varAddresses.get(varDecl);
+        emit(storeOp, varAddr.toString());
+    }
+
+    // Arguments should be generated before call
+    void emitCall(FunctionHeaderContext callee) {
+        Opcode op = Opcode.INVOKESTATIC;
+        addInstruction(op.mnemonic, callee.specification);
+        int returnStackSize = callee.returnType.size();
+        int paramsStackSize = callee.params.stream()
+            .map(p -> p.type)
+            .mapToInt(Type::size)
+            .sum();
+        // Arguments are popped, return value is pushed
+        int stackChange = returnStackSize - paramsStackSize;
+        updateStack(stackChange);
+    }
+
+    private void addInstruction(String mnemonic, String operand) {
+        body.append(mnemonic);
+        if (operand != null)
+            body.append(" ").append(operand);
+        body.appendNewLine();
+    }
+
+    private void updateStack(int stackChange) {
+        currentStackDepth += stackChange;
+        maxStackDepth = Math.max(maxStackDepth, currentStackDepth);
+    }
+
+    // Returns a new label for jump instructions
     String newLabel() {
         return "L" + nextLabel++;
     }
 
-    void insertLabel(String l) {
-        body.appendln(l + ":");
+    void insertLabel(String label) {
+        body.append(label).appendln(":");
     }
 
     String collectCode() {
-        return "public static Method " + specification +
-               "stack " + maxStackDepth + " locals " + nextVarAddress +
-               "{" + body + "}";
+        return String.join(System.lineSeparator(),
+            "public static " + specification,
+            "stack " + maxStackDepth + " locals " + nextVarAddress,
+            "{",
+            body,
+            "}"
+        );
     }
 
 }
