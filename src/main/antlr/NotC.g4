@@ -177,6 +177,8 @@ statement
     | expr=expression STM_TERM                                                     # ExpressionStatement
     | 'return' expr=expression? STM_TERM                                           # ReturnStatement
     | LEFT_BRACE statements+=statement* RIGHT_BRACE                                # BlockStatement
+    | 'for' LEFT_PAREN initExpr=expression? ';' conditionExpr=expression? ';'
+          advanceExpr=expression? RIGHT_PAREN body=statement                       # ForStatement
     | 'while' LEFT_PAREN conditionExpr=expression RIGHT_PAREN loopedStm=statement  # WhileStatement
     | 'if' LEFT_PAREN conditionExpr=expression RIGHT_PAREN consequentStm=statement # IfStatement
     | 'if' LEFT_PAREN conditionExpr=expression RIGHT_PAREN

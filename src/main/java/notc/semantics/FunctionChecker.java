@@ -8,6 +8,7 @@ import notc.antlrgen.NotCParser.DeclarationStatementContext;
 import notc.antlrgen.NotCParser.InitializationStatementContext;
 import notc.antlrgen.NotCParser.ExpressionStatementContext;
 import notc.antlrgen.NotCParser.BlockStatementContext;
+import notc.antlrgen.NotCParser.ForStatementContext;
 import notc.antlrgen.NotCParser.WhileStatementContext;
 import notc.antlrgen.NotCParser.IfStatementContext;
 import notc.antlrgen.NotCParser.IfElseStatementContext;
@@ -68,7 +69,21 @@ class FunctionChecker extends NotCBaseVisitor<Void> {
         return null;
     }
 
-    // Same in while and if, but also checks expression
+    // Same in for, while and if, and their condition expressions need to be checked
+
+    @Override
+    public Void visitForStatement(ForStatementContext forStm) {
+        symTab.pushScope();
+        if (forStm.initExpr != null)
+            forStm.initExpr.accept(exprChecker);
+        if (forStm.conditionExpr != null)
+            exprChecker.expectType(forStm.conditionExpr, Type.BOOL);
+        if (forStm.advanceExpr != null)
+            forStm.advanceExpr.accept(exprChecker);
+        forStm.body.accept(this);
+        symTab.popScope();
+        return null;
+    }
 
     @Override
     public Void visitWhileStatement(WhileStatementContext whileStm) {

@@ -1,0 +1,4 @@
+void main() {
+    for (;false;)
+        printString("Not printed");
+}

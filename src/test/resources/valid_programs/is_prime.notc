@@ -1,0 +1,27 @@
+void main() {
+    printInt(isPrime(1));
+    printInt(isPrime(4));
+    printInt(isPrime(87));
+    printInt(isPrime(341));
+
+    printInt(isPrime(2));
+    printInt(isPrime(17));
+    printInt(isPrime(281));
+    printInt(isPrime(15485863));
+}
+
+bool isPrime(int n) {
+    if (n == 2 || n == 3)
+        return true;
+
+    if (n <= 1 || n % 2 == 0 || n % 3 == 0)
+        return false;
+
+    int i;
+    for (i = 5; i * i <= n; i = i + 6) {
+        if (n % i == 0 || n % (i + 2) == 0)
+            return false;
+    }
+
+    return true;
+}

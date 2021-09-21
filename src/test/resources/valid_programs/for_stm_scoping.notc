@@ -1,0 +1,22 @@
+void main() {
+    int n = 10;
+    printInt(n);
+
+    int i;
+    for (i = 0; i < 1; ++i) {
+        printInt(n);
+        string n = "20";
+        printString(n);
+
+        int j;
+        for (j = 0; j < 1; ++j) {
+            printString(n);
+            int n = 30;
+            printInt(n);
+        }
+
+        printString(n);
+    }
+
+    printInt(n);
+}

@@ -8,6 +8,7 @@ import notc.antlrgen.NotCParser.DeclarationStatementContext;
 import notc.antlrgen.NotCParser.InitializationStatementContext;
 import notc.antlrgen.NotCParser.ExpressionStatementContext;
 import notc.antlrgen.NotCParser.BlockStatementContext;
+import notc.antlrgen.NotCParser.ForStatementContext;
 import notc.antlrgen.NotCParser.WhileStatementContext;
 import notc.antlrgen.NotCParser.IfStatementContext;
 import notc.antlrgen.NotCParser.IfElseStatementContext;
@@ -55,18 +56,35 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
     @Override
     public Void visitExpressionStatement(ExpressionStatementContext exprStm) {
         Type exprType = exprGen.generate(exprStm.expr);
-        // Value is not used and should be popped
-        if (exprType.isVoid()) return null; // Leaves nothing on stack anyway
-        Opcode pop = exprType.isDouble() ? Opcode.POP2 : Opcode.POP;
-        targetMethod.emit(pop);
+        // Value is not used
+        pop(exprType.size());
         return null;
     }
 
     @Override
-    public Void visitBlockStatement(BlockStatementContext block) {
-        for (StatementContext stm : block.statements)
-            stm.accept(this);
+    public Void visitForStatement(ForStatementContext forStm) {
+        Type initType = exprGen.generate(forStm.initExpr);
+        pop(initType.size());
+        String testLabel = targetMethod.newLabel();
+        String endLabel = targetMethod.newLabel();
+        targetMethod.insertLabel(testLabel);
+        Type condType = exprGen.generate(forStm.conditionExpr);
+        if (condType.isVoid()) // for (;;)
+            targetMethod.emit(Opcode.ICONST_1);
+        targetMethod.emit(Opcode.IFEQ, endLabel); // "if TOS = 0"
+        forStm.body.accept(this);
+        Type advType = exprGen.generate(forStm.advanceExpr);
+        pop(advType.size());
+        targetMethod.emit(Opcode.GOTO, testLabel);
+        targetMethod.insertLabel(endLabel);
         return null;
+    }
+
+    private void pop(int stackEntryCount) {
+        if (stackEntryCount == 0)
+            return;
+        Opcode popOp = (stackEntryCount == 1) ? Opcode.POP : Opcode.POP2;
+        targetMethod.emit(popOp);
     }
 
     @Override
@@ -75,7 +93,7 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
         String endLabel = targetMethod.newLabel();
         targetMethod.insertLabel(testLabel);
         exprGen.generate(whileStm.conditionExpr);
-        targetMethod.emit(Opcode.IFEQ, endLabel); // "if TOS = 0"
+        targetMethod.emit(Opcode.IFEQ, endLabel);
         whileStm.loopedStm.accept(this);
         targetMethod.emit(Opcode.GOTO, testLabel);
         targetMethod.insertLabel(endLabel);
@@ -106,6 +124,13 @@ class FunctionGenerator extends NotCBaseVisitor<Void> {
         targetMethod.insertLabel(falseLabel);
         ifElseStm.altStm.accept(this);
         targetMethod.insertLabel(trueLabel);
+        return null;
+    }
+
+    @Override
+    public Void visitBlockStatement(BlockStatementContext block) {
+        for (StatementContext stm : block.statements)
+            stm.accept(this);
         return null;
     }
 

@@ -1,0 +1,12 @@
+void main() {
+    double e = 1;
+    double term = 1;
+
+    int i;
+    for(i = 1; i <= 10; ++i) {
+        term = term / i;
+        e = e + term;
+    }
+
+    printDouble(e);
+}
