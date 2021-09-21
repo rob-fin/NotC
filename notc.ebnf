@@ -1,0 +1,45 @@
+NotCProgram ::= FunctionDefinition+
+
+FunctionDefinition ::= Type Id '(' (Type Id (',' Type Id)*)? ')' '{' Statement* '}'
+
+Type ::= 'bool' | 'double' | 'int' | 'string' | 'void'
+
+Id ::= [a-zA-Z][a-zA-Z0-9'_']*
+
+Statement ::=
+      ';'
+    | Type Id (, Id)* ';'
+    | Type Id '=' Expression ';'
+    | Expression ';'
+    | 'for' '(' Expression ';' Expression ';' Expression ')' Statement
+    | 'while' '(' Expression ')' Statement
+    | 'if' '(' Expression ')' Statement
+    | 'if' '(' Expression ')' Statement 'else' Statement
+    | '{' Statement* '}'
+    | 'return' Expression ';'
+
+Expression ::=
+      '(' Expression ')'
+    | BooleanLiteral
+    | DoubleLiteral
+    | IntLiteral
+    | StringLiteral
+    | Id
+    | Id '(' (Type Id (',' Type Id)*)? ')'
+    | '++'Id
+    | Id'++'
+    | '--'Id
+    | Id'--'
+    | Expression ArithmeticOperator Expression
+    | Expression ComparisonOperator Expression
+    | Expression BooleanOperator    Expression
+    | Id '=' Expression
+
+BooleanLiteral ::= 'false' | 'true'
+DoubleLiteral  ::= '-'? ([0-9]+ '.' [0-9]+ | '.' [0-9]+)
+IntLiteral     ::= '-'? [0-9]+
+StringLiteral  ::= '"' [^\r\n"]* '"'
+
+ArithmeticOperator ::= '+' | '-' | '*' | '/' | '%'
+ComparisonOperator ::= '<' | '>' | '>=' | '<=' | '==' | '!='
+BooleanOperator    ::= '&&' | '||'

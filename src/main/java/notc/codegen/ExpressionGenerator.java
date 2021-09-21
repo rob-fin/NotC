@@ -37,42 +37,43 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         this.targetMethod = targetMethod;
     }
 
-    // Common entry point.
-    // Performs any necessary conversion of the type the expression evaluates to.
-    // Returns the runtime type of the expression.
+    // Common entry point. Generates expr and performs
+    // any necessary conversion of the type it is generated as.
+    // Returns its runtime type.
     Type generate(ExpressionContext expr) {
         if (expr == null)
             return Type.VOID;
+
         expr.accept(this);
+
         if (expr.runtimeConversion == null)
             return expr.type;
 
-        Type from = expr.type;
-        Type to = expr.runtimeConversion;
+        convertTopOfStack(expr.type, expr.runtimeConversion);
+        return expr.runtimeConversion;
+    }
+
+    private void convertTopOfStack(Type from, Type to) {
         if (to.isDouble())
             targetMethod.emit(Opcode.I2D); // Widens
         else if (from.isDouble() && to.isInt())
             targetMethod.emit(Opcode.D2I); // Truncates
         else if (!to.isBool())
-            ; // Nothing to do
+            return; // bools used as ints
         else if (from.isInt())
             intToBool();
         else
             doubleToBool();
-
-        return to;
     }
 
-    // Converts a double at the top of the stack to 0 or 1
+    // nonzero double -> 1,  0.0 -> 0
     private void doubleToBool() {
-        // 0.0 -> 0,  nonzero double -> nonzero int
         targetMethod.emit(Opcode.LDC2_W, "0.0");
         targetMethod.emit(Opcode.DCMPG);
-
         intToBool();
     }
 
-    // Converts a nonzero int at the top of the stack to 1
+    // nonzero int -> 1,  0 -> 0
     private void intToBool() {
         // (value | -value) >> 31
         targetMethod.emit(Opcode.DUP);

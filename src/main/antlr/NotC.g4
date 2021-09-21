@@ -3,16 +3,16 @@ grammar NotC;
 
 /* Type patch */
 
+@parser::header {
+    import com.google.common.collect.Lists;
+    import java.util.Collections;
+    import java.util.Set;
+}
+
 // Convenience class for the language's types.
 // Injected among the ANTLR-generated abstract syntax classes
 // and used instead of the generated TypeContexts
-// in the tree's type annotations.
-@parser::header {
-import com.google.common.collect.Lists;
-import java.util.Collections;
-import java.util.Set;
-}
-
+// in the parse tree type annotations.
 @parser::members {
     public enum Type {
         STRING(1, "Ljava/lang/String;"),
@@ -112,7 +112,7 @@ import java.util.Set;
 }
 
 
-/* Grammar start */
+/* Grammar start. See notc.ebnf for a more readable version. */
 
 // List of function definitions
 program
@@ -245,7 +245,7 @@ AND : '&&' ;
 OR  : '||' ;
 
 
-ID  : LETTER (LETTER | DIGIT | '_')* ;
+ID : LETTER (LETTER | DIGIT | '_')* ;
 
 DOUBLE_LITERAL : '-'? (DIGIT+ '.' DIGIT+ | '.' DIGIT+) ;
 
@@ -253,14 +253,14 @@ INT_LITERAL : '-'? DIGIT+ ;
 
 DIGIT : [0-9] ;
 
-STRING_LITERAL : '"' (~["\n])* '"' ;
+STRING_LITERAL : '"' (~["\r\n])* '"' ;
 
 LETTER : [A-Za-z] ;
 
-WHITE : [ \n\t]+ -> skip ;
+WHITE : [ \r\n\t]+ -> skip ;
 
 COMMENT : (
-            '//' .*? '\n' |
+            '//' .*? '\r'? '\n' |
             '/*' .*? '*/'
           ) -> skip
         ;
