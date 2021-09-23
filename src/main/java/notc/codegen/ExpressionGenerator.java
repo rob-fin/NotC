@@ -4,6 +4,7 @@ import notc.antlrgen.NotCBaseVisitor;
 import notc.antlrgen.NotCParser;
 import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.ExpressionContext;
+import notc.antlrgen.NotCParser.NegationExpressionContext;
 import notc.antlrgen.NotCParser.FalseLiteralExpressionContext;
 import notc.antlrgen.NotCParser.TrueLiteralExpressionContext;
 import notc.antlrgen.NotCParser.DoubleLiteralExpressionContext;
@@ -81,6 +82,14 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         targetMethod.emit(Opcode.IOR);
         targetMethod.emit(Opcode.LDC, "31");
         targetMethod.emit(Opcode.IUSHR);
+    }
+
+    @Override
+    public Void visitNegationExpression(NegationExpressionContext negation) {
+        Type t = generate(negation.opnd);
+        Opcode negationOp = t.isDouble() ? Opcode.DNEG : Opcode.INEG;
+        targetMethod.emit(negationOp);
+        return null;
     }
 
     // Literals: operations to put constant values on the stack

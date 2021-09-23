@@ -1,0 +1,21 @@
+void main() {
+    printDouble(-1.0);
+
+    printDouble(-(2.5 + 0.0));
+
+    double d;
+
+    d = -3.25;
+    printDouble(-d);
+
+    d = 4.125;
+    printDouble(-d++);
+
+    printDouble(-(d = 5.0625));
+
+    printDouble(-f());
+}
+
+double f() {
+    return 6.03125;
+}

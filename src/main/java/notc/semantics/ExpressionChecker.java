@@ -5,6 +5,7 @@ import notc.antlrgen.NotCParser.Type;
 import notc.antlrgen.NotCParser.FunctionHeaderContext;
 import notc.antlrgen.NotCParser.VariableDeclarationContext;
 import notc.antlrgen.NotCParser.ExpressionContext;
+import notc.antlrgen.NotCParser.NegationExpressionContext;
 import notc.antlrgen.NotCParser.FalseLiteralExpressionContext;
 import notc.antlrgen.NotCParser.TrueLiteralExpressionContext;
 import notc.antlrgen.NotCParser.DoubleLiteralExpressionContext;
@@ -54,6 +55,14 @@ class ExpressionChecker extends NotCBaseVisitor<Type> {
     Type typeAnnotate(ExpressionContext expr, Type t) {
         expr.type = t;
         return t;
+    }
+
+    @Override
+    public Type visitNegationExpression(NegationExpressionContext negation) {
+        Type t = negation.opnd.accept(this);
+        if (!t.isNumerical())
+            throw new SemanticException(negation.getStart(), "Non-numerical negation operand");
+        return typeAnnotate(negation, t);
     }
 
     // Literal expressions simply have the type of the literal

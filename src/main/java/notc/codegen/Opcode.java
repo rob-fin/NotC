@@ -42,7 +42,8 @@ enum Opcode {                          // Stack:
     IFNE         ("ifne",        -1),
     I2D          ("i2d",          1),  // [ i ] -> [ d ]
     D2I          ("d2i",         -1),  // [ d ] -> [ i ]
-    INEG         ("ineg",         0),  // [ i ] -> [ i ]
+    INEG         ("ineg",         0),  // [ val ] -> [ val ]
+    DNEG         ("dneg",         0),
     IRETURN      ("ireturn",     -1),  // [ returnval ] -> [ ]
     DRETURN      ("dreturn",     -2),
     ARETURN      ("areturn",     -1),

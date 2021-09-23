@@ -189,7 +189,8 @@ statement
 
 // The types of expressions are inferred during semantic analysis
 expression locals [Type type, Type runtimeConversion]
-    : LEFT_PAREN expr=expression RIGHT_PAREN                                       # ParenthesizedExpression
+    : '-' opnd=expression                                                          # NegationExpression
+    | LEFT_PAREN expr=expression RIGHT_PAREN                                       # ParenthesizedExpression
     | 'false'                                                                      # FalseLiteralExpression
     | 'true'                                                                       # TrueLiteralExpression
     | value=DOUBLE_LITERAL                                                         # DoubleLiteralExpression
@@ -247,9 +248,9 @@ OR  : '||' ;
 
 ID : LETTER (LETTER | DIGIT | '_')* ;
 
-DOUBLE_LITERAL : '-'? (DIGIT+ '.' DIGIT+ | '.' DIGIT+) ;
+DOUBLE_LITERAL : DIGIT+ '.' DIGIT+ | '.' DIGIT+ ;
 
-INT_LITERAL : '-'? DIGIT+ ;
+INT_LITERAL : DIGIT+ ;
 
 DIGIT : [0-9] ;
 

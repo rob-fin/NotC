@@ -1,0 +1,10 @@
+// For e.g. a-b, lex as 'a', '-', 'b' and not 'a', '-b'
+void main() {
+    printInt(2-1);
+    printDouble(2.0-1.0);
+    int i = 1;
+    printInt(2 -i);
+    printDouble(4.0            -f());
+}
+
+double f() { return 3.0; }
