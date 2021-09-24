@@ -109,6 +109,14 @@ grammar NotC;
             return name().toLowerCase();
         }
     }
+
+    // Makes parser rules aware of program's name for FQN precomputations
+    static String programId;
+    public static NotCParser from(TokenStream tokens, String id) {
+        programId = id;
+        return new NotCParser(tokens);
+    }
+
 }
 
 
@@ -126,17 +134,17 @@ functionDefinition
     ;
 
 // Type, name, parameter list
-functionHeader locals [Type returnType, String specification]
+functionHeader locals [Type returnType, String specification, String fqn]
 @after {
     $ctx.returnType = $ctx.parsedReturn.type;
 
-    // Precompute JVM specification
-    StringBuilder sb = new StringBuilder("Method " + $ctx.id.getText() + ":");
-    sb.append("\"(");
+    // Precomputes JVM specification
+    StringBuilder sb = new StringBuilder($ctx.id.getText() + "(");
     for (Type t : Lists.transform($ctx.params, p -> p.type))
         sb.append(t.descriptor());
-    sb.append(")").append($ctx.returnType.descriptor()).append("\"");
+    sb.append(")").append($ctx.returnType.descriptor());
     $ctx.specification = sb.toString();
+    $ctx.fqn = NotCParser.programId + "/" + $ctx.specification;
 }
     : parsedReturn=typeToken
       id=ID
@@ -211,6 +219,7 @@ expression locals [Type type, Type runtimeConversion]
     ;
 
 headerDeclarations : headers+=functionHeader* ;
+
 
 // Lexer rules
 

@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 
+
 public class ProgramGenerator extends NotCBaseVisitor<String> {
     private final SymbolTable symTab;
     private final String className;
@@ -26,15 +27,22 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
     @Override
     public String visitProgram(ProgramContext prog) {
         TextStringBuilder finalOutput = new TextStringBuilder();
-        finalOutput.appendln("super public class " + className + "{");
 
-        // Load resource containing built-in functions.
-        // Also contains JVM entry point main, which calls the generated main.
-        ClassLoader classLoader = getClass().getClassLoader();
-        try (InputStream is = classLoader.getResourceAsStream("boilerplate.jasm")) {
-            finalOutput.appendln(IOUtils.toString(is, StandardCharsets.UTF_8));
+        // Makes JVM entry point "void main(String[])" call generated "void main()"
+        finalOutput
+            .appendln(".class public " + className)
+            .appendln(".super java/lang/Object")
+            .appendln(".method public static main([Ljava/lang/String;)V")
+            .appendln("invokestatic " + className + "/main()V")
+            .appendln("return")
+            .appendln(".end method");
+
+        // Adds built-in functions
+        try (InputStream is = getClass().getResourceAsStream("/builtin_definitions.j")) {
+            String builtins = IOUtils.toString(is, StandardCharsets.UTF_8);
+            finalOutput.appendln(builtins);
         } catch (IOException e) {
-            throw new UncheckedIOException("Shouldn't happen because file exists", e);
+            throw new UncheckedIOException(e);
         }
 
         ExpressionGenerator exprGen = new ExpressionGenerator(symTab);
@@ -45,8 +53,6 @@ public class ProgramGenerator extends NotCBaseVisitor<String> {
             JvmMethod method = funGen.generate(funDef);
             finalOutput.appendln(method.collectCode());
         }
-
-        finalOutput.appendln("}");
 
         return finalOutput.toString();
     }

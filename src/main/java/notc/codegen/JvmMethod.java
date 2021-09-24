@@ -27,14 +27,14 @@ class JvmMethod {
         Type.DOUBLE, Opcode.DLOAD
     );
 
+    private final String specification;
+    private final TextStringBuilder body;
+    private final Map<VariableDeclarationContext,Integer> varAddresses;
+
     private int nextVarAddress;
     private int currentStackDepth;
     private int maxStackDepth;
     private int nextLabel;
-
-    private String specification;
-    private TextStringBuilder body;
-    private Map<VariableDeclarationContext,Integer> varAddresses;
 
     JvmMethod(FunctionHeaderContext header) {
         specification = header.specification;
@@ -77,7 +77,7 @@ class JvmMethod {
     // Arguments should be generated before call
     void emitCall(FunctionHeaderContext callee) {
         Opcode op = Opcode.INVOKESTATIC;
-        addInstruction(op.mnemonic, callee.specification);
+        addInstruction(op.mnemonic, callee.fqn);
         int returnStackSize = callee.returnType.size();
         int paramsStackSize = callee.params.stream()
             .map(p -> p.type)
@@ -97,6 +97,8 @@ class JvmMethod {
 
     private void updateStack(int stackChange) {
         currentStackDepth += stackChange;
+        if (currentStackDepth < 0)
+            throw new IllegalStateException("Negative stack depth");
         maxStackDepth = Math.max(maxStackDepth, currentStackDepth);
     }
 
@@ -111,11 +113,11 @@ class JvmMethod {
 
     String collectCode() {
         return String.join(System.lineSeparator(),
-            "public static " + specification,
-            "stack " + maxStackDepth + " locals " + nextVarAddress,
-            "{",
+            ".method public static " + specification,
+            ".limit locals " + nextVarAddress,
+            ".limit stack " + maxStackDepth,
             body,
-            "}"
+            ".end method"
         );
     }
 
