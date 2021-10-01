@@ -1,0 +1,15 @@
+bool falseFunction() {
+    printString("From falseFunction");
+    return false;
+}
+
+bool trueFunction() {
+    printString("From trueFunction");
+    return true;
+}
+
+void main() {
+    falseFunction() && trueFunction();
+    printString(""); // Makes sure test does not pass if both of the above and none of the below are called
+    trueFunction() || falseFunction();
+}

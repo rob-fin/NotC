@@ -7,7 +7,6 @@ enum Opcode {                          // Stack:
     IMUL         ("imul",        -1),
     IDIV         ("idiv",        -1),
     IREM         ("irem",        -1),
-    IAND         ("iand",        -1),
     IOR          ("ior",         -1),
     IUSHR        ("iushr",       -1),
     DADD         ("dadd",        -2),  // [ d d ] -> [ d ]

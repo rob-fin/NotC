@@ -227,21 +227,22 @@ class ExpressionGenerator extends NotCBaseVisitor<Void> {
         targetMethod.insertLabel(endLabel);
     }
 
-    // &&, ||: Use bitwise and/or on operands and check if result is 0
+    // &&, ||
     @Override
     public Void visitBinaryBooleanExpression(BinaryBooleanExpressionContext binBoolExpr) {
-        // Put operands on stack
-        generate(binBoolExpr.opnd1);
-        generate(binBoolExpr.opnd2);
-        Opcode op;
-        if (binBoolExpr.op.getType() == NotCParser.AND)
-            op = Opcode.IAND;
-        else
-            op = Opcode.IOR;
         String trueLabel = targetMethod.newLabel();
+        String falseLabel = targetMethod.newLabel();
         String endLabel = targetMethod.newLabel();
-        targetMethod.emit(op);
+        // Makes generated code short-circuit the evaluation when possible
+        generate(binBoolExpr.opnd1);
+        if (binBoolExpr.op.getType() == NotCParser.AND)
+            targetMethod.emit(Opcode.IFEQ, falseLabel);
+        else
+            targetMethod.emit(Opcode.IFNE, trueLabel);
+        generate(binBoolExpr.opnd2);
         targetMethod.emit(Opcode.IFNE, trueLabel);
+
+        targetMethod.insertLabel(falseLabel);
         targetMethod.emit(Opcode.ICONST_0);
         targetMethod.emit(Opcode.GOTO, endLabel);
         targetMethod.insertLabel(trueLabel);
