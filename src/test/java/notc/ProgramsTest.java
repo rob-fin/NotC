@@ -23,6 +23,8 @@ import org.jooq.lambda.Unchecked;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -40,11 +42,16 @@ import java.util.stream.Stream;
 @TestInstance(Lifecycle.PER_CLASS)
 @TestMethodOrder(OrderAnnotation.class)
 class ProgramsTest {
-    private final ClassLoader cl = ProgramsTest.class.getClassLoader();
+
     // Test directories
-    private final Path syntaxErrors   = Path.of(cl.getResource("syntax_errors").getFile());
-    private final Path semanticErrors = Path.of(cl.getResource("semantic_errors").getFile());
-    private final Path validPrograms  = Path.of(cl.getResource("valid_programs").getFile());
+    private final Path syntaxErrors   = getResourcePath("syntax_errors");
+    private final Path semanticErrors = getResourcePath("semantic_errors");
+    private final Path validPrograms  = getResourcePath("valid_programs");
+
+    private Path getResourcePath(String resourceName) {
+        URL url = getClass().getResource("/" + resourceName);
+        return Path.of(URI.create(url.toString()));
+    }
 
 
     // Compilation tests
